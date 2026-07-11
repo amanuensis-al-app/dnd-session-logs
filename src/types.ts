@@ -70,14 +70,13 @@ export interface GainedItem {
   description?: string;
 }
 
-export type LossReason = 'consumed' | 'used' | 'traded' | 'sold' | 'lost' | 'other';
+export type LossReason = 'used' | 'traded' | 'sold' | 'lost' | 'other';
 
 export const LOSS_REASON_LABELS: Record<LossReason, string> = {
-  consumed: 'Consumed',
-  used: 'Used',
+  used: 'Used / Consumed',
   traded: 'Traded away',
   sold: 'Sold',
-  lost: 'Lost',
+  lost: 'Lost / Destroyed',
   other: 'Other',
 };
 
@@ -92,8 +91,10 @@ export interface LogEntry {
   id: string;
   characterId: string;
   type: LogType;
-  /** ISO date (yyyy-mm-dd). Logs replay in date order, then creation order. */
+  /** ISO date (yyyy-mm-dd). Logs replay in date order, then time, then creation order. */
   date: string;
+  /** Optional time of day (HH:mm, 24h). Treated as 00:00 when absent. */
+  time?: string;
   /** Adventure name / short description of the log. */
   title: string;
   notes?: string;
@@ -107,6 +108,10 @@ export interface LogEntry {
   itemsLost: LostItem[];
   /** Transaction logs: who the trade was with. */
   tradePartner?: string;
+  /** Session logs: where it was played. */
+  location?: string;
+  /** Session logs: who ran the table. */
+  dm?: string;
   createdAt: number;
 }
 

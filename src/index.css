@@ -203,6 +203,22 @@ h2 {
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 0.7rem;
   margin-bottom: 0.8rem;
+  align-items: end;
+}
+
+.form-grid label {
+  white-space: nowrap;
+}
+
+/* Title/adventure row: full width alone, or wide + Location + DM for sessions. */
+.context-row {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .context-session {
+    grid-template-columns: 2fr 1fr 1fr;
+  }
 }
 
 label {
@@ -352,6 +368,17 @@ textarea:focus {
   background: var(--bg-inset);
   color: var(--text);
   border-color: var(--accent);
+}
+
+.tab:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.log-form-editing {
+  font-size: 0.85rem;
+  color: var(--accent-strong);
+  margin: 0.2rem 0 0.4rem;
 }
 
 /* ---- Inventory ---- */
@@ -520,6 +547,72 @@ textarea:focus {
 
 .log-form-notes {
   margin-bottom: 0.4rem;
+}
+
+.combo {
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.combo input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---- Modal ---- */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 7, 18, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 50;
+}
+
+.modal {
+  width: 100%;
+  max-width: 460px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.modal p {
+  margin: 0.4rem 0 0.8rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+/* ---- Unexported-changes indicator ---- */
+
+.unbacked-indicator {
+  position: fixed;
+  left: 1rem;
+  bottom: 1rem;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  max-width: min(420px, calc(100vw - 2rem));
+  padding: 0.6rem 0.9rem;
+  font-size: 0.85rem;
+  color: #eec97b;
+  background: #241d33;
+  border: 1px solid rgba(238, 201, 123, 0.45);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+.unbacked-indicator .btn {
+  flex-shrink: 0;
 }
 
 @media (max-width: 560px) {

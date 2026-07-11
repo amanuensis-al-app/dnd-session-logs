@@ -25,7 +25,7 @@ export function Inventory({ character, derived, onSaveLog }: Props) {
       downtimeSpent: 0,
       levelGained: 0,
       itemsGained: [],
-      itemsLost: [{ itemId: item.id, quantity: 1, reason: item.category === 'consumable' ? 'consumed' : 'used' }],
+      itemsLost: [{ itemId: item.id, quantity: 1, reason: 'used' }],
       createdAt: Date.now(),
     });
   }

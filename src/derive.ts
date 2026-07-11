@@ -1,11 +1,24 @@
 import type { Character, DerivedStats, InventoryItem, LogEntry } from './types';
 
-/** Replay order: by date, ties broken by creation time. */
+/** Replay order: by date, then time (blank = 00:00), ties broken by creation time. */
 export function sortLogs(logs: LogEntry[]): LogEntry[] {
   return [...logs].sort((a, b) => {
     if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    const at = a.time || '00:00';
+    const bt = b.time || '00:00';
+    if (at !== bt) return at < bt ? -1 : 1;
     return a.createdAt - b.createdAt;
   });
+}
+
+/** Distinct non-empty values of a log field, for "pick from previous" dropdowns. */
+export function knownValues(logs: LogEntry[], field: 'dm' | 'location'): string[] {
+  const values = new Set<string>();
+  for (const log of logs) {
+    const v = log[field]?.trim();
+    if (v) values.add(v);
+  }
+  return [...values].sort((a, b) => a.localeCompare(b));
 }
 
 export function logsForCharacter(logs: LogEntry[], characterId: string): LogEntry[] {

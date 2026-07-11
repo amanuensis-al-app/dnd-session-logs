@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Character, DerivedStats, LogEntry } from '../types';
-import { formatGp, logsForCharacter } from '../derive';
+import { formatGp, knownValues, logsForCharacter } from '../derive';
 import { Inventory } from './Inventory';
 import { LogHistory } from './LogHistory';
 import { LogForm } from './LogForm';
@@ -27,7 +27,8 @@ export function CharacterSheet({
   onBack,
 }: Props) {
   const [tab, setTab] = useState<'inventory' | 'logs'>('inventory');
-  const [addingLog, setAddingLog] = useState(false);
+  /** 'new' = adding, a LogEntry = editing that log, null = form closed. */
+  const [logDraft, setLogDraft] = useState<'new' | LogEntry | null>(null);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(character.name);
   const [species, setSpecies] = useState(character.species);
@@ -141,28 +142,37 @@ export function CharacterSheet({
             Logs ({characterLogs.length})
           </button>
         </div>
-        <button className="btn btn-primary" onClick={() => setAddingLog(true)}>
+        <button className="btn btn-primary" onClick={() => setLogDraft('new')}>
           + Add Log
         </button>
       </div>
 
-      {addingLog && (
+      {logDraft !== null && (
         <LogForm
+          key={logDraft === 'new' ? 'new' : logDraft.id}
           character={character}
           derived={derived}
+          knownDMs={knownValues(logs, 'dm')}
+          knownLocations={knownValues(logs, 'location')}
+          existingLog={logDraft === 'new' ? undefined : logDraft}
           onSave={(log) => {
             onSaveLog(log);
-            setAddingLog(false);
+            setLogDraft(null);
             setTab('logs');
           }}
-          onCancel={() => setAddingLog(false)}
+          onCancel={() => setLogDraft(null)}
         />
       )}
 
       {tab === 'inventory' ? (
         <Inventory character={character} derived={derived} onSaveLog={onSaveLog} />
       ) : (
-        <LogHistory logs={characterLogs} derived={derived} onDeleteLog={onDeleteLog} />
+        <LogHistory
+          logs={characterLogs}
+          derived={derived}
+          onEditLog={(log) => setLogDraft(log)}
+          onDeleteLog={onDeleteLog}
+        />
       )}
     </div>
   );

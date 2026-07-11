@@ -6,6 +6,7 @@ interface Props {
   /** Already filtered to one character and sorted in replay order. */
   logs: LogEntry[];
   derived: DerivedStats;
+  onEditLog: (log: LogEntry) => void;
   onDeleteLog: (logId: string) => void;
 }
 
@@ -17,7 +18,7 @@ const TYPE_BADGE: Record<LogType, string> = {
   free: 'badge-free',
 };
 
-export function LogHistory({ logs, derived, onDeleteLog }: Props) {
+export function LogHistory({ logs, derived, onEditLog, onDeleteLog }: Props) {
   if (logs.length === 0) {
     return (
       <div className="empty-state">
@@ -42,7 +43,17 @@ export function LogHistory({ logs, derived, onDeleteLog }: Props) {
           <header className="log-entry-header">
             <span className={`badge ${TYPE_BADGE[log.type]}`}>{LOG_TYPE_LABELS[log.type]}</span>
             <span className="log-entry-title">{log.title || '(untitled)'}</span>
-            <span className="muted log-entry-date">{log.date}</span>
+            <span className="muted log-entry-date">
+              {log.date}
+              {log.time ? ` ${log.time}` : ''}
+            </span>
+            <button
+              className="btn btn-ghost btn-small"
+              onClick={() => onEditLog(log)}
+              title="Edit this log"
+            >
+              ✎
+            </button>
             <button
               className="btn btn-ghost btn-small"
               onClick={() => {
@@ -59,6 +70,17 @@ export function LogHistory({ logs, derived, onDeleteLog }: Props) {
             {log.tradePartner && (
               <div className="log-line">
                 Traded with <strong>{log.tradePartner}</strong>
+              </div>
+            )}
+            {(log.dm || log.location) && (
+              <div className="log-line muted">
+                {log.dm && (
+                  <>
+                    DM: <strong>{log.dm}</strong>
+                  </>
+                )}
+                {log.dm && log.location && ' · '}
+                {log.location && <>at {log.location}</>}
               </div>
             )}
             <div className="log-deltas">

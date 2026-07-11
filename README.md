@@ -3,8 +3,9 @@
 A local-first PWA for tracking D&D Adventurers League bookkeeping: characters, session logs,
 gold, downtime, magic items, consumables, equipment, story awards, blessings, charms and boons.
 
-All data lives in your browser (IndexedDB). No server, no accounts. Use **Export / Import**
-(JSON) to back up or move data between devices.
+All data lives in your browser (IndexedDB). No server, no accounts. Use **Backup / Restore**
+(JSON) to back up or move data between devices. The app keeps track of changes made since
+your last backup and shows a reminder until you back them up.
 
 ## How it works
 
