@@ -537,8 +537,33 @@ textarea:focus {
   flex: 2 1 140px;
 }
 
+/* When the name slot wraps a ComboInput, let the inner control fill it. */
+span.item-row-name {
+  display: flex;
+}
+
+span.item-row-name > * {
+  flex: 1;
+  min-width: 0;
+}
+
 .item-row-qty {
   width: 64px;
+}
+
+.item-row-cost {
+  width: 92px;
+}
+
+.input-computed {
+  background: var(--bg-raised);
+  color: var(--accent-strong);
+  font-weight: 600;
+  cursor: default;
+}
+
+.input-computed:focus {
+  outline: none;
 }
 
 .item-row-desc {

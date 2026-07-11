@@ -1,5 +1,5 @@
 import type { Character, DerivedStats, InventoryItem, ItemCategory, LogEntry } from '../types';
-import { CATEGORY_LABELS, ITEM_CATEGORIES, newId } from '../types';
+import { CATEGORY_LABELS, ITEM_CATEGORIES, STACKED_CATEGORIES, newId } from '../types';
 
 interface Props {
   character: Character;
@@ -74,7 +74,9 @@ export function Inventory({ character, derived, onSaveLog }: Props) {
                     )}
                   </div>
                   {item.description && <div className="inventory-item-desc muted">{item.description}</div>}
-                  <div className="inventory-item-meta muted">Acquired {item.acquiredDate}</div>
+                  {!STACKED_CATEGORIES.includes(category) && (
+                    <div className="inventory-item-meta muted">Acquired {item.acquiredDate}</div>
+                  )}
                 </li>
               ))}
             </ul>

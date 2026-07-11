@@ -1,4 +1,5 @@
 import type { Character, DerivedStats, InventoryItem, LogEntry } from './types';
+import { STACKED_CATEGORIES, stackedItemId } from './types';
 
 /** Replay order: by date, then time (blank = 00:00), ties broken by creation time. */
 export function sortLogs(logs: LogEntry[]): LogEntry[] {
@@ -37,6 +38,9 @@ export function deriveCharacter(character: Character, allLogs: LogEntry[]): Deri
   let downtimeDays = 0;
   let level = 1;
   const items = new Map<string, InventoryItem>();
+  // Data from before stacked categories existed gave every gain a uuid; map those
+  // onto the content-derived stack id so old logs and backups keep deriving correctly.
+  const legacyAlias = new Map<string, string>();
 
   for (const log of logs) {
     gp += (log.gpGained || 0) - (log.gpLost || 0);
@@ -44,16 +48,36 @@ export function deriveCharacter(character: Character, allLogs: LogEntry[]): Deri
     level += log.levelGained || 0;
 
     for (const gained of log.itemsGained) {
-      items.set(gained.id, {
-        ...gained,
-        sourceLogId: log.id,
-        acquiredDate: log.date,
-        remaining: gained.quantity,
-        losses: [],
-      });
+      if (STACKED_CATEGORIES.includes(gained.category)) {
+        const id = stackedItemId(gained);
+        if (gained.id !== id) legacyAlias.set(gained.id, id);
+        const stack = items.get(id);
+        if (stack) {
+          stack.quantity += gained.quantity;
+          stack.remaining += gained.quantity;
+        } else {
+          items.set(id, {
+            ...gained,
+            id,
+            description: undefined,
+            sourceLogId: log.id,
+            acquiredDate: log.date,
+            remaining: gained.quantity,
+            losses: [],
+          });
+        }
+      } else {
+        items.set(gained.id, {
+          ...gained,
+          sourceLogId: log.id,
+          acquiredDate: log.date,
+          remaining: gained.quantity,
+          losses: [],
+        });
+      }
     }
     for (const lost of log.itemsLost) {
-      const item = items.get(lost.itemId);
+      const item = items.get(lost.itemId) ?? items.get(legacyAlias.get(lost.itemId) ?? '');
       if (!item) continue; // source log was deleted; ignore the dangling loss
       item.remaining -= lost.quantity;
       item.losses.push({

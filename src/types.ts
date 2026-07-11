@@ -60,14 +60,36 @@ export const LOG_TYPE_LABELS: Record<LogType, string> = {
   free: 'Free Log',
 };
 
-/** An item granted by a log entry. The id identifies this item instance forever. */
+/**
+ * Categories with no per-instance identity: any two with the same name and rarity are
+ * the same item, so they stack. They carry no description, and their GainedItem id is
+ * content-derived (see stackedItemId) — the SAME id may appear in many logs, and the
+ * derive engine sums the quantities. Other categories (magic items, …) keep a unique
+ * uuid per gained instance.
+ */
+export const STACKED_CATEGORIES: ItemCategory[] = ['consumable', 'equipment'];
+
+/** Deterministic GainedItem id for stacked categories: identity = category+name+rarity. */
+export function stackedItemId(item: {
+  category: ItemCategory;
+  name: string;
+  rarity?: Rarity;
+}): string {
+  return `stk:${item.category}|${item.name.trim().toLowerCase()}|${item.rarity ?? ''}`;
+}
+
+/** An item granted by a log entry. For non-stacked categories the id identifies this
+ * item instance forever; for stacked categories it is the content-derived stack id. */
 export interface GainedItem {
   id: string;
   name: string;
   category: ItemCategory;
   rarity?: Rarity;
   quantity: number;
+  /** Not used by stacked categories. */
   description?: string;
+  /** Purchase price per unit in GP. Recorded by purchase logs, which derive their GP spent from it. */
+  cost?: number;
 }
 
 export type LossReason = 'used' | 'traded' | 'sold' | 'lost' | 'other';

@@ -1,6 +1,29 @@
-import type { DerivedStats, LogEntry, LogType } from '../types';
+import type { DerivedStats, LogEntry, LogType, LossReason } from '../types';
 import { CATEGORY_LABELS_SINGULAR, LOG_TYPE_LABELS, LOSS_REASON_LABELS } from '../types';
 import { formatGp } from '../derive';
+
+/**
+ * One display line per lost item name + reason. A stack loss is stored split across
+ * the gained-item instances it drew from (FIFO); readers only care about the total.
+ */
+function groupedLosses(
+  log: LogEntry,
+  itemNameById: Map<string, string>,
+): { name: string; reason: LossReason; quantity: number }[] {
+  const rows: { name: string; reason: LossReason; quantity: number }[] = [];
+  const index = new Map<string, number>();
+  for (const loss of log.itemsLost) {
+    const name = itemNameById.get(loss.itemId) ?? '(deleted item)';
+    const key = `${name}|${loss.reason}`;
+    const at = index.get(key);
+    if (at != null) rows[at].quantity += loss.quantity;
+    else {
+      index.set(key, rows.length);
+      rows.push({ name, reason: loss.reason, quantity: loss.quantity });
+    }
+  }
+  return rows;
+}
 
 interface Props {
   /** Already filtered to one character and sorted in replay order. */
@@ -115,9 +138,9 @@ export function LogHistory({ logs, derived, onEditLog, onDeleteLog }: Props) {
             )}
             {log.itemsLost.length > 0 && (
               <ul className="log-items">
-                {log.itemsLost.map((loss, i) => (
-                  <li key={i} className="delta-loss">
-                    − {itemNameById.get(loss.itemId) ?? '(deleted item)'}
+                {groupedLosses(log, itemNameById).map((loss) => (
+                  <li key={`${loss.name}|${loss.reason}`} className="delta-loss">
+                    − {loss.name}
                     {loss.quantity > 1 ? ` ×${loss.quantity}` : ''}{' '}
                     <span className="muted">({LOSS_REASON_LABELS[loss.reason]})</span>
                   </li>

@@ -17,8 +17,11 @@ import {
   LOSS_REASON_LABELS,
   RARITIES,
   RARITY_CATEGORIES,
+  STACKED_CATEGORIES,
   newId,
+  stackedItemId,
 } from '../types';
+import { ITEM_CATALOG } from '../catalog';
 
 interface Props {
   character: Character;
@@ -45,7 +48,9 @@ function ComboInput({
   placeholder: string;
   onChange: (value: string) => void;
 }) {
-  const [manual, setManual] = useState(options.length === 0);
+  const [manual, setManual] = useState(
+    () => options.length === 0 || (value !== '' && !options.includes(value)),
+  );
 
   if (manual || options.length === 0) {
     return (
@@ -99,7 +104,7 @@ const TYPE_HELP: Record<LogType, string> = {
   session: 'A played session: rewards (and occasional losses) of gold, downtime, items and buffs.',
   catchup: 'Downtime activity: spend 10 downtime days to gain 1 level.',
   transaction: 'Trade a magic item for another of the same rarity. Costs 5 downtime days.',
-  purchase: 'Spend gold on equipment (non-magic items).',
+  purchase: 'Spend gold on equipment or consumables.',
   free: 'Record anything: character creation, DM rewards, corrections…',
 };
 
@@ -112,6 +117,8 @@ interface GainDraft {
   rarity: Rarity;
   quantity: string;
   description: string;
+  /** Per-unit price in GP; only shown (and saved) for purchase logs. */
+  cost: string;
 }
 
 interface LossDraft {
@@ -122,7 +129,15 @@ interface LossDraft {
 }
 
 function emptyGain(category: ItemCategory = 'magic_item'): GainDraft {
-  return { key: newId(), category, name: '', rarity: 'uncommon', quantity: '1', description: '' };
+  return {
+    key: newId(),
+    category,
+    name: '',
+    rarity: 'uncommon',
+    quantity: '1',
+    description: '',
+    cost: '',
+  };
 }
 
 function emptyLoss(reason: LossReason = 'used'): LossDraft {
@@ -157,8 +172,8 @@ export function LogForm({
   const [downtimeGained, setDowntimeGained] = useState(String(existingLog?.downtimeGained ?? 10));
   const [downtimeSpent, setDowntimeSpent] = useState(String(existingLog?.downtimeSpent ?? 0));
   const [levelGained, setLevelGained] = useState(String(existingLog?.levelGained ?? 1));
-  const [gains, setGains] = useState<GainDraft[]>(() =>
-    (existingLog?.itemsGained ?? []).map((item) => ({
+  const [gains, setGains] = useState<GainDraft[]>(() => {
+    const drafts = (existingLog?.itemsGained ?? []).map((item) => ({
       key: item.id,
       id: item.id,
       category: item.category,
@@ -166,8 +181,20 @@ export function LogForm({
       rarity: item.rarity ?? 'uncommon',
       quantity: String(item.quantity),
       description: item.description ?? '',
-    })),
-  );
+      cost: item.cost != null ? String(item.cost) : '',
+    }));
+    // Purchase logs saved before per-item costs existed only stored the total; put it
+    // back on a sole item so the recomputed GP spent matches the stored one.
+    if (
+      existingLog?.type === 'purchase' &&
+      drafts.length === 1 &&
+      drafts[0].cost === '' &&
+      existingLog.gpLost > 0
+    ) {
+      drafts[0].cost = String(existingLog.gpLost / Math.max(1, existingLog.itemsGained[0].quantity));
+    }
+    return drafts;
+  });
   const [losses, setLosses] = useState<LossDraft[]>(() =>
     (existingLog?.itemsLost ?? []).map((lost, i) => ({
       key: `${lost.itemId}:${i}`,
@@ -206,6 +233,15 @@ export function LogForm({
     derived.downtimeDays +
     (existingLog ? existingLog.downtimeSpent - existingLog.downtimeGained : 0);
   const tradeLostItem = ownedMagicItems.find((i) => i.id === tradeLostItemId);
+
+  // Purchase logs derive their GP spent from the item costs (rounded to copper).
+  const purchaseTotal =
+    Math.round(
+      gains.reduce(
+        (sum, g) => sum + Math.max(0, num(g.cost)) * Math.max(1, Math.round(num(g.quantity))),
+        0,
+      ) * 100,
+    ) / 100;
 
   function switchType(next: LogType) {
     setType(next);
@@ -250,14 +286,22 @@ export function LogForm({
 
     const gainedItems: GainedItem[] = gains
       .filter((g) => g.name.trim())
-      .map((g) => ({
-        id: g.id ?? newId(),
-        name: g.name.trim(),
-        category: g.category,
-        rarity: RARITY_CATEGORIES.includes(g.category) ? g.rarity : undefined,
-        quantity: Math.max(1, Math.round(num(g.quantity))),
-        description: g.description.trim() || undefined,
-      }));
+      .map((g) => {
+        const name = g.name.trim();
+        const rarity = RARITY_CATEGORIES.includes(g.category) ? g.rarity : undefined;
+        const stacked = STACKED_CATEGORIES.includes(g.category);
+        return {
+          // Stacked categories always recompute their content-derived id, so renames
+          // re-bucket naturally; instance ids of other categories are preserved forever.
+          id: stacked ? stackedItemId({ category: g.category, name, rarity }) : (g.id ?? newId()),
+          name,
+          category: g.category,
+          rarity,
+          quantity: Math.max(1, Math.round(num(g.quantity))),
+          description: stacked ? undefined : g.description.trim() || undefined,
+          cost: type === 'purchase' && g.cost.trim() !== '' ? Math.max(0, num(g.cost)) : undefined,
+        };
+      });
 
     const lostItems = losses
       .filter((l) => l.itemId)
@@ -309,11 +353,11 @@ export function LogForm({
         };
       }
       case 'purchase':
-        if (gainedItems.length === 0) return 'Add at least one piece of equipment.';
+        if (gainedItems.length === 0) return 'Add at least one item you bought.';
         return {
           ...base,
           title: base.title || `Bought ${gainedItems.map((i) => i.name).join(', ')}`,
-          gpLost: Math.max(0, num(gpLost)),
+          gpLost: purchaseTotal,
           itemsGained: gainedItems,
         };
       case 'free':
@@ -346,7 +390,7 @@ export function LogForm({
     (type === 'transaction' && downtimeAvailable < 5);
 
   const gainCategories: ItemCategory[] =
-    type === 'purchase' ? ['equipment'] : [...ITEM_CATEGORIES];
+    type === 'purchase' ? ['equipment', 'consumable'] : [...ITEM_CATEGORIES];
 
   const showGains = type === 'session' || type === 'purchase' || type === 'free';
   const showLosses = type === 'session' || type === 'free';
@@ -482,15 +526,10 @@ export function LogForm({
       {type === 'purchase' && (
         <div className="form-grid">
           <label>
-            GP spent *
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={gpLost}
-              onChange={(e) => setGpLost(e.target.value)}
-              required
-            />
+            <span>
+              GP spent <span className="muted">(auto: Σ cost × qty)</span>
+            </span>
+            <input className="input-computed" value={purchaseTotal} readOnly tabIndex={-1} />
           </label>
         </div>
       )}
@@ -557,12 +596,35 @@ export function LogForm({
                   </option>
                 ))}
               </select>
-              <input
-                className="item-row-name"
-                value={g.name}
-                onChange={(e) => updateGain(g.key, { name: e.target.value })}
-                placeholder="item name *"
-              />
+              <span className="item-row-name">
+                <ComboInput
+                  key={g.category}
+                  value={g.name}
+                  options={(ITEM_CATALOG[g.category] ?? []).map((c) => c.name)}
+                  placeholder="item name *"
+                  onChange={(name) => {
+                    const entry = ITEM_CATALOG[g.category]?.find((c) => c.name === name);
+                    // Picking a catalog item fills in its rarity, and its price in a purchase.
+                    updateGain(g.key, {
+                      name,
+                      ...(entry?.rarity ? { rarity: entry.rarity } : {}),
+                      ...(type === 'purchase' && entry ? { cost: String(entry.cost) } : {}),
+                    });
+                  }}
+                />
+              </span>
+              {type === 'purchase' && (
+                <input
+                  className="item-row-cost"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={g.cost}
+                  onChange={(e) => updateGain(g.key, { cost: e.target.value })}
+                  placeholder="gp each"
+                  title="Cost per unit in GP"
+                />
+              )}
               {RARITY_CATEGORIES.includes(g.category) && (
                 <select
                   value={g.rarity}
@@ -583,12 +645,14 @@ export function LogForm({
                 onChange={(e) => updateGain(g.key, { quantity: e.target.value })}
                 title="Quantity"
               />
-              <input
-                className="item-row-desc"
-                value={g.description}
-                onChange={(e) => updateGain(g.key, { description: e.target.value })}
-                placeholder="description (optional)"
-              />
+              {!STACKED_CATEGORIES.includes(g.category) && (
+                <input
+                  className="item-row-desc"
+                  value={g.description}
+                  onChange={(e) => updateGain(g.key, { description: e.target.value })}
+                  placeholder="description (optional)"
+                />
+              )}
               <button
                 type="button"
                 className="btn btn-ghost btn-small"
