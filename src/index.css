@@ -419,6 +419,11 @@ textarea:focus {
   margin-top: 0.15rem;
 }
 
+.inventory-item-warning {
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+}
+
 .rarity {
   font-size: 0.75rem;
   text-transform: capitalize;
@@ -493,6 +498,21 @@ textarea:focus {
 .log-form {
   margin-bottom: 1rem;
   border-color: var(--accent);
+  position: relative;
+}
+
+.log-form-minimize {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+}
+
+.log-form-minimized {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 1rem;
 }
 
 .log-form-types {
@@ -500,6 +520,7 @@ textarea:focus {
   gap: 0.3rem;
   flex-wrap: wrap;
   margin-bottom: 0.5rem;
+  padding-right: 2.4rem;
 }
 
 .log-form-help {

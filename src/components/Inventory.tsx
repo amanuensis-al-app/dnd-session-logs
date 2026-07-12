@@ -1,5 +1,5 @@
-import type { Character, DerivedStats, InventoryItem, ItemCategory, LogEntry } from '../types';
-import { CATEGORY_LABELS, ITEM_CATEGORIES, STACKED_CATEGORIES, newId } from '../types';
+import type { Character, DerivedStats, InventoryItem, ItemCategory, LogEntry, Rarity } from '../types';
+import { CATEGORY_LABELS, ITEM_CATEGORIES, RARITIES, STACKED_CATEGORIES, newId } from '../types';
 
 interface Props {
   character: Character;
@@ -30,14 +30,28 @@ export function Inventory({ character, derived, onSaveLog }: Props) {
     });
   }
 
+  // remaining < 0 means more was lost/used than ever gained — an invalid log somewhere.
+  // Show those with a warning instead of hiding them, so the user can find and fix it.
+  const visibleItems = derived.allItems.filter((i) => i.remaining !== 0);
+
   const byCategory = new Map<ItemCategory, InventoryItem[]>();
-  for (const item of derived.inventory) {
+  for (const item of visibleItems) {
     const list = byCategory.get(item.category) ?? [];
     list.push(item);
     byCategory.set(item.category, list);
   }
+  // Within a section: valid items before negative ones, then rarest first, then name.
+  const rarityRank = (r?: Rarity) => (r ? RARITIES.indexOf(r) : -1);
+  for (const list of byCategory.values()) {
+    list.sort(
+      (a, b) =>
+        (a.remaining < 0 ? 1 : 0) - (b.remaining < 0 ? 1 : 0) ||
+        rarityRank(b.rarity) - rarityRank(a.rarity) ||
+        a.name.localeCompare(b.name),
+    );
+  }
 
-  if (derived.inventory.length === 0) {
+  if (visibleItems.length === 0) {
     return (
       <div className="empty-state">
         <p>Nothing in the inventory yet.</p>
@@ -63,16 +77,25 @@ export function Inventory({ character, derived, onSaveLog }: Props) {
                     <span className="inventory-item-name">
                       {item.name}
                       {item.quantity > 1 || item.remaining !== item.quantity ? (
-                        <span className="muted"> ×{item.remaining}</span>
+                        <span className={item.remaining < 0 ? 'delta-loss' : 'muted'}>
+                          {' '}
+                          ×{item.remaining}
+                        </span>
                       ) : null}
                     </span>
                     {item.rarity && <span className={`rarity rarity-${item.rarity.replace(' ', '-')}`}>{item.rarity}</span>}
-                    {USABLE.includes(category) && (
+                    {USABLE.includes(category) && item.remaining > 0 && (
                       <button className="chip" onClick={() => useItem(item)}>
                         Use
                       </button>
                     )}
                   </div>
+                  {item.remaining < 0 && (
+                    <div className="warning inventory-item-warning">
+                      ⚠ Negative quantity: {-item.remaining} more lost/used than ever gained.
+                      There is an invalid log — check this item's gains and losses.
+                    </div>
+                  )}
                   {item.description && <div className="inventory-item-desc muted">{item.description}</div>}
                   {!STACKED_CATEGORIES.includes(category) && (
                     <div className="inventory-item-meta muted">Acquired {item.acquiredDate}</div>

@@ -159,6 +159,7 @@ export function LogForm({
   onCancel,
 }: Props) {
   const editing = existingLog !== undefined;
+  const [minimized, setMinimized] = useState(false);
   const [type, setType] = useState<LogType>(existingLog?.type ?? 'session');
   const [date, setDate] = useState(() => existingLog?.date ?? new Date().toISOString().slice(0, 10));
   const [time, setTime] = useState(existingLog?.time ?? '');
@@ -395,8 +396,31 @@ export function LogForm({
   const showGains = type === 'session' || type === 'purchase' || type === 'free';
   const showLosses = type === 'session' || type === 'free';
 
+  if (minimized) {
+    return (
+      <div className="card log-form log-form-minimized">
+        <span className="muted">
+          {editing
+            ? `✎ Editing “${existingLog.title || existingLog.date}”`
+            : `New ${LOG_TYPE_LABELS[type]} (draft)`}
+        </span>
+        <button type="button" className="btn btn-ghost btn-small" onClick={() => setMinimized(false)}>
+          ▾ Expand
+        </button>
+      </div>
+    );
+  }
+
   return (
     <form className="card log-form" onSubmit={submit}>
+      <button
+        type="button"
+        className="btn btn-ghost btn-small log-form-minimize"
+        title="Minimise (keeps what you typed)"
+        onClick={() => setMinimized(true)}
+      >
+        —
+      </button>
       <div className="log-form-types">
         {LOG_TYPES.map((t) => (
           <button

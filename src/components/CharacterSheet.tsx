@@ -142,26 +142,36 @@ export function CharacterSheet({
             Logs ({characterLogs.length})
           </button>
         </div>
-        <button className="btn btn-primary" onClick={() => setLogDraft('new')}>
+        <button
+          className="btn btn-primary"
+          onClick={() => {
+            setLogDraft('new');
+            setTab('logs');
+          }}
+        >
           + Add Log
         </button>
       </div>
 
       {logDraft !== null && (
-        <LogForm
-          key={logDraft === 'new' ? 'new' : logDraft.id}
-          character={character}
-          derived={derived}
-          knownDMs={knownValues(logs, 'dm')}
-          knownLocations={knownValues(logs, 'location')}
-          existingLog={logDraft === 'new' ? undefined : logDraft}
-          onSave={(log) => {
-            onSaveLog(log);
-            setLogDraft(null);
-            setTab('logs');
-          }}
-          onCancel={() => setLogDraft(null)}
-        />
+        /* hidden, not unmounted, off the Logs tab — a half-typed draft must survive
+           switching to Inventory and back */
+        <div hidden={tab !== 'logs'}>
+          <LogForm
+            key={logDraft === 'new' ? 'new' : logDraft.id}
+            character={character}
+            derived={derived}
+            knownDMs={knownValues(logs, 'dm')}
+            knownLocations={knownValues(logs, 'location')}
+            existingLog={logDraft === 'new' ? undefined : logDraft}
+            onSave={(log) => {
+              onSaveLog(log);
+              setLogDraft(null);
+              setTab('logs');
+            }}
+            onCancel={() => setLogDraft(null)}
+          />
+        </div>
       )}
 
       {tab === 'inventory' ? (
