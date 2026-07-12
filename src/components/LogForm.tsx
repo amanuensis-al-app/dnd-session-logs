@@ -44,6 +44,7 @@ function ComboInput({
   placeholder,
   onChange,
   optionLabel,
+  optionGroup,
 }: {
   value: string;
   options: string[];
@@ -51,6 +52,8 @@ function ComboInput({
   onChange: (value: string) => void;
   /** Display text for a dropdown option; the option's value stays the plain string. */
   optionLabel?: (option: string) => string;
+  /** Section heading for an option; consecutive options sharing one render in an <optgroup>. */
+  optionGroup?: (option: string) => string | undefined;
 }) {
   const [manual, setManual] = useState(
     () => options.length === 0 || (value !== '' && !options.includes(value)),
@@ -81,6 +84,19 @@ function ComboInput({
     );
   }
 
+  const sections: { group?: string; options: string[] }[] = [];
+  for (const o of options) {
+    const group = optionGroup?.(o);
+    const last = sections[sections.length - 1];
+    if (last && last.group === group) last.options.push(o);
+    else sections.push({ group, options: [o] });
+  }
+  const renderOption = (o: string) => (
+    <option key={o} value={o}>
+      {optionLabel ? optionLabel(o) : o}
+    </option>
+  );
+
   return (
     <select
       value={options.includes(value) ? value : ''}
@@ -94,11 +110,15 @@ function ComboInput({
       }}
     >
       <option value="">—</option>
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {optionLabel ? optionLabel(o) : o}
-        </option>
-      ))}
+      {sections.map((s) =>
+        s.group ? (
+          <optgroup key={s.group} label={s.group}>
+            {s.options.map(renderOption)}
+          </optgroup>
+        ) : (
+          s.options.map(renderOption)
+        ),
+      )}
       <option value="__manual__">✏️ Input manually…</option>
     </select>
   );
@@ -628,9 +648,11 @@ export function LogForm({
                 <ComboInput
                   key={g.category}
                   value={g.name}
-                  options={(ITEM_CATALOG[g.category] ?? [])
-                    .map((c) => c.name)
-                    .sort((a, b) => a.localeCompare(b))}
+                  // Catalog order (grouped by section), NOT alphabetical.
+                  options={(ITEM_CATALOG[g.category] ?? []).map((c) => c.name)}
+                  optionGroup={(name) =>
+                    ITEM_CATALOG[g.category]?.find((c) => c.name === name)?.group
+                  }
                   optionLabel={
                     // Prices only matter when buying. The selected option keeps its
                     // plain name so the closed select shows "Flail", not "Flail — 10 gp".
