@@ -22,6 +22,7 @@ import {
   stackedItemId,
 } from '../types';
 import { ITEM_CATALOG } from '../catalog';
+import { formatGp } from '../derive';
 
 interface Props {
   character: Character;
@@ -42,11 +43,14 @@ function ComboInput({
   options,
   placeholder,
   onChange,
+  optionLabel,
 }: {
   value: string;
   options: string[];
   placeholder: string;
   onChange: (value: string) => void;
+  /** Display text for a dropdown option; the option's value stays the plain string. */
+  optionLabel?: (option: string) => string;
 }) {
   const [manual, setManual] = useState(
     () => options.length === 0 || (value !== '' && !options.includes(value)),
@@ -92,7 +96,7 @@ function ComboInput({
       <option value="">—</option>
       {options.map((o) => (
         <option key={o} value={o}>
-          {o}
+          {optionLabel ? optionLabel(o) : o}
         </option>
       ))}
       <option value="__manual__">✏️ Input manually…</option>
@@ -624,7 +628,20 @@ export function LogForm({
                 <ComboInput
                   key={g.category}
                   value={g.name}
-                  options={(ITEM_CATALOG[g.category] ?? []).map((c) => c.name)}
+                  options={(ITEM_CATALOG[g.category] ?? [])
+                    .map((c) => c.name)
+                    .sort((a, b) => a.localeCompare(b))}
+                  optionLabel={
+                    // Prices only matter when buying. The selected option keeps its
+                    // plain name so the closed select shows "Flail", not "Flail — 10 gp".
+                    type === 'purchase'
+                      ? (name) => {
+                          if (name === g.name) return name;
+                          const entry = ITEM_CATALOG[g.category]?.find((c) => c.name === name);
+                          return entry ? `${name} — ${formatGp(entry.cost)} gp` : name;
+                        }
+                      : undefined
+                  }
                   placeholder="item name *"
                   onChange={(name) => {
                     const entry = ITEM_CATALOG[g.category]?.find((c) => c.name === name);
