@@ -7,6 +7,7 @@ import type {
   LogEntry,
   LogType,
   LossReason,
+  MinorProperty,
   Rarity,
 } from '../types';
 import {
@@ -15,13 +16,15 @@ import {
   LOG_TYPES,
   LOG_TYPE_LABELS,
   LOSS_REASON_LABELS,
+  MINOR_PROPERTIES,
   RARITIES,
   RARITY_CATEGORIES,
   STACKED_CATEGORIES,
   newId,
   stackedItemId,
 } from '../types';
-import { ITEM_CATALOG } from '../catalog';
+import { CREATION_BACKGROUNDS, CREATION_CLASSES, ITEM_CATALOG } from '../catalog';
+import type { CreationOption } from '../catalog';
 import { formatGp } from '../derive';
 
 interface Props {
@@ -110,6 +113,9 @@ function ComboInput({
       }}
     >
       <option value="">—</option>
+      {/* Manual input sits on top: with long grouped catalogs it would otherwise
+          take a lot of scrolling to reach. */}
+      <option value="__manual__">✏️ Input manually…</option>
       {sections.map((s) =>
         s.group ? (
           <optgroup key={s.group} label={s.group}>
@@ -119,17 +125,17 @@ function ComboInput({
           s.options.map(renderOption)
         ),
       )}
-      <option value="__manual__">✏️ Input manually…</option>
     </select>
   );
 }
 
 const TYPE_HELP: Record<LogType, string> = {
   session: 'A played session: rewards (and occasional losses) of gold, downtime, items and buffs.',
-  catchup: 'Downtime activity: spend 10 downtime days to gain 1 level.',
+  catchup: 'Downtime activity: spend 10 downtime days per level gained.',
   transaction: 'Trade a magic item for another of the same rarity. Costs 5 downtime days.',
   purchase: 'Spend gold on equipment or consumables.',
-  free: 'Record anything: character creation, DM rewards, corrections…',
+  creation: 'Character creation: starting gold and equipment. Pick a background to prefill.',
+  free: 'Record anything: DM rewards, corrections…',
 };
 
 interface GainDraft {
@@ -141,6 +147,8 @@ interface GainDraft {
   rarity: Rarity;
   quantity: string;
   description: string;
+  /** Magic items only: at most one of MINOR_PROPERTIES, or '' for none. */
+  minorProperty: MinorProperty | '';
   /** Per-unit price in GP; only shown (and saved) for purchase logs. */
   cost: string;
 }
@@ -160,6 +168,7 @@ function emptyGain(category: ItemCategory = 'magic_item'): GainDraft {
     rarity: 'uncommon',
     quantity: '1',
     description: '',
+    minorProperty: '',
     cost: '',
   };
 }
@@ -171,6 +180,11 @@ function emptyLoss(reason: LossReason = 'used'): LossDraft {
 function num(value: string): number {
   const n = parseFloat(value);
   return Number.isFinite(n) ? n : 0;
+}
+
+/** " [Guardian]" suffix for an item-picker option, or '' if it has no minor property. */
+function minorPropertySuffix(item: { minorProperty?: MinorProperty }): string {
+  return item.minorProperty ? ` [${item.minorProperty}]` : '';
 }
 
 export function LogForm({
@@ -206,6 +220,7 @@ export function LogForm({
       rarity: item.rarity ?? 'uncommon',
       quantity: String(item.quantity),
       description: item.description ?? '',
+      minorProperty: (item.minorProperty ?? '') as MinorProperty | '',
       cost: item.cost != null ? String(item.cost) : '',
     }));
     // Purchase logs saved before per-item costs existed only stored the total; put it
@@ -228,12 +243,25 @@ export function LogForm({
       reason: lost.reason,
     })),
   );
+  // Creation-specific: which background/option and class/option are selected.
+  // Not stored on the log — picking these just prefills the gold and item rows
+  // below (as the sum of both picks), which stay freely editable afterward.
+  const [creationBackground, setCreationBackground] = useState('');
+  const [creationBgOption, setCreationBgOption] = useState(0);
+  const [creationClass, setCreationClass] = useState('');
+  const [creationClassOption, setCreationClassOption] = useState(0);
   // Transaction-specific: the item given away and the item received.
   const [tradeLostItemId, setTradeLostItemId] = useState(
     existingLog?.type === 'transaction' ? (existingLog.itemsLost[0]?.itemId ?? '') : '',
   );
   const [tradeGainedName, setTradeGainedName] = useState(
     existingLog?.type === 'transaction' ? (existingLog.itemsGained[0]?.name ?? '') : '',
+  );
+  const [tradeGainedMinorProperty, setTradeGainedMinorProperty] = useState<MinorProperty | ''>(
+    existingLog?.type === 'transaction' ? (existingLog.itemsGained[0]?.minorProperty ?? '') : '',
+  );
+  const [tradeGainedDescription, setTradeGainedDescription] = useState(
+    existingLog?.type === 'transaction' ? (existingLog.itemsGained[0]?.description ?? '') : '',
   );
 
   // Items this form may record as lost: current inventory, plus whatever this log
@@ -271,15 +299,53 @@ export function LogForm({
   function switchType(next: LogType) {
     setType(next);
     // Sensible defaults per type; the user can still adjust visible fields.
-    if (next === 'session') {
+    if (next === 'session' || next === 'catchup') {
       setDowntimeGained('10');
       setLevelGained('1');
     } else if (next === 'free') {
       setDowntimeGained('0');
       setLevelGained('0');
+    } else if (next === 'creation') {
+      setGpGained('0');
+      setCreationBackground('');
+      setCreationBgOption(0);
+      setCreationClass('');
+      setCreationClassOption(0);
     }
     setGains([]);
     setLosses([]);
+  }
+
+  /** Creation log: (re)fill the gold + item rows from the picked background AND class option. */
+  function applyCreationPicks(
+    bgName: string,
+    bgOptionIndex: number,
+    className: string,
+    classOptionIndex: number,
+  ) {
+    setCreationBackground(bgName);
+    setCreationBgOption(bgOptionIndex);
+    setCreationClass(className);
+    setCreationClassOption(classOptionIndex);
+    const bgOption = CREATION_BACKGROUNDS.find((b) => b.name === bgName)?.options[bgOptionIndex];
+    const classOption = CREATION_CLASSES.find((c) => c.name === className)?.options[
+      classOptionIndex
+    ];
+    setGpGained(String((bgOption?.gp ?? 0) + (classOption?.gp ?? 0)));
+    setGains(
+      [...(bgOption?.items ?? []), ...(classOption?.items ?? [])].map((item) => ({
+        ...emptyGain('equipment'),
+        name: item.name,
+        quantity: String(item.quantity ?? 1),
+      })),
+    );
+  }
+
+  function creationOptionLabel(option: CreationOption, index: number): string {
+    const letter = String.fromCharCode(65 + index);
+    return option.items.length > 0
+      ? `Option ${letter}: equipment package + ${option.gp} GP`
+      : `Option ${letter}: ${option.gp} GP`;
   }
 
   function updateGain(key: string, patch: Partial<GainDraft>) {
@@ -324,6 +390,7 @@ export function LogForm({
           rarity,
           quantity: Math.max(1, Math.round(num(g.quantity))),
           description: stacked ? undefined : g.description.trim() || undefined,
+          minorProperty: g.category === 'magic_item' && g.minorProperty ? g.minorProperty : undefined,
           cost: type === 'purchase' && g.cost.trim() !== '' ? Math.max(0, num(g.cost)) : undefined,
         };
       });
@@ -354,8 +421,8 @@ export function LogForm({
         return {
           ...base,
           title: base.title || 'Catching Up',
-          downtimeSpent: 10,
-          levelGained: 1,
+          downtimeSpent: catchupLevels * 10,
+          levelGained: catchupLevels,
         };
       case 'transaction': {
         if (!tradeLostItem) return 'Pick the magic item you are trading away.';
@@ -372,6 +439,8 @@ export function LogForm({
               category: 'magic_item',
               rarity: tradeLostItem.rarity,
               quantity: 1,
+              description: tradeGainedDescription.trim() || undefined,
+              minorProperty: tradeGainedMinorProperty || undefined,
             },
           ],
           itemsLost: [{ itemId: tradeLostItem.id, quantity: 1, reason: 'traded' }],
@@ -385,6 +454,15 @@ export function LogForm({
           gpLost: purchaseTotal,
           itemsGained: gainedItems,
         };
+      case 'creation': {
+        const creationDesc = [creationBackground, creationClass].filter(Boolean).join(' / ');
+        return {
+          ...base,
+          title: base.title || (creationDesc ? `Character Creation (${creationDesc})` : 'Character Creation'),
+          gpGained: Math.max(0, num(gpGained)),
+          itemsGained: gainedItems,
+        };
+      }
       case 'free':
         return {
           ...base,
@@ -410,14 +488,19 @@ export function LogForm({
     onSave(result);
   }
 
+  // Catch Up spends 10 downtime days per level gained.
+  const catchupLevels = Math.max(1, Math.round(num(levelGained)));
   const downtimeWarning =
-    (type === 'catchup' && downtimeAvailable < 10) ||
+    (type === 'catchup' && downtimeAvailable < catchupLevels * 10) ||
     (type === 'transaction' && downtimeAvailable < 5);
 
   const gainCategories: ItemCategory[] =
-    type === 'purchase' ? ['equipment', 'consumable'] : [...ITEM_CATEGORIES];
+    type === 'purchase' || type === 'creation'
+      ? ['equipment', 'consumable']
+      : [...ITEM_CATEGORIES];
 
-  const showGains = type === 'session' || type === 'purchase' || type === 'free';
+  const showGains =
+    type === 'session' || type === 'purchase' || type === 'creation' || type === 'free';
   const showLosses = type === 'session' || type === 'free';
 
   if (minimized) {
@@ -468,7 +551,7 @@ export function LogForm({
       {downtimeWarning && (
         <p className="warning">
           ⚠ {character.name} has only {downtimeAvailable} downtime days — this log spends{' '}
-          {type === 'catchup' ? 10 : 5}. It will still be recorded if you save.
+          {type === 'catchup' ? catchupLevels * 10 : 5}. It will still be recorded if you save.
         </p>
       )}
 
@@ -582,11 +665,131 @@ export function LogForm({
         </div>
       )}
 
+      {type === 'creation' && (
+        <>
+          <div className="form-grid">
+            <label>
+              Background
+              <select
+                value={creationBackground}
+                onChange={(e) =>
+                  applyCreationPicks(e.target.value, 0, creationClass, creationClassOption)
+                }
+              >
+                <option value="">— pick a background —</option>
+                {CREATION_BACKGROUNDS.map((b) => (
+                  <option key={b.name} value={b.name}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Background equipment
+              <select
+                value={creationBgOption}
+                onChange={(e) =>
+                  applyCreationPicks(
+                    creationBackground,
+                    Number(e.target.value),
+                    creationClass,
+                    creationClassOption,
+                  )
+                }
+                disabled={!creationBackground}
+              >
+                {(
+                  CREATION_BACKGROUNDS.find((b) => b.name === creationBackground)?.options ?? []
+                ).map((o, i) => (
+                  <option key={i} value={i}>
+                    {creationOptionLabel(o, i)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="form-grid">
+            <label>
+              Class
+              <select
+                value={creationClass}
+                onChange={(e) =>
+                  applyCreationPicks(creationBackground, creationBgOption, e.target.value, 0)
+                }
+              >
+                <option value="">— pick a class —</option>
+                {CREATION_CLASSES.map((c) => (
+                  <option key={c.name} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Class equipment
+              <select
+                value={creationClassOption}
+                onChange={(e) =>
+                  applyCreationPicks(
+                    creationBackground,
+                    creationBgOption,
+                    creationClass,
+                    Number(e.target.value),
+                  )
+                }
+                disabled={!creationClass}
+              >
+                {(CREATION_CLASSES.find((c) => c.name === creationClass)?.options ?? []).map(
+                  (o, i) => (
+                    <option key={i} value={i}>
+                      {creationOptionLabel(o, i)}
+                    </option>
+                  ),
+                )}
+              </select>
+            </label>
+            <label>
+              GP gained <span className="muted">(background + class)</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={gpGained}
+                onChange={(e) => setGpGained(e.target.value)}
+              />
+            </label>
+          </div>
+          <p className="muted">
+            Picking a background and class fills in the gold (sum of both) and item rows —
+            adjust them freely, e.g. replace an “(any)” placeholder with the specific tool or
+            instrument you chose. If your background isn’t on the list, pick Custom Background
+            and adjust the gold and equipment accordingly.
+          </p>
+        </>
+      )}
+
       {type === 'catchup' && (
-        <p className="log-form-fixed">
-          Fixed effect: <span className="delta delta-loss">−10 downtime days</span>{' '}
-          <span className="delta delta-gain">+1 level</span>
-        </p>
+        <>
+          <div className="form-grid">
+            <label>
+              Levels to gain
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={levelGained}
+                onChange={(e) => setLevelGained(e.target.value)}
+              />
+            </label>
+          </div>
+          <p className="log-form-fixed">
+            Effect:{' '}
+            <span className="delta delta-loss">−{catchupLevels * 10} downtime days</span>{' '}
+            <span className="delta delta-gain">
+              +{catchupLevels} level{catchupLevels === 1 ? '' : 's'}
+            </span>
+          </p>
+        </>
       )}
 
       {type === 'transaction' && (
@@ -594,37 +797,77 @@ export function LogForm({
           <p className="log-form-fixed">
             Fixed effect: <span className="delta delta-loss">−5 downtime days</span>
           </p>
-          <div className="form-grid">
+
+          <fieldset className="log-form-items log-form-trade-side">
+            <legend>↑ Given away</legend>
             <label>
-              Magic item given away *
+              Magic item *
               <select value={tradeLostItemId} onChange={(e) => setTradeLostItemId(e.target.value)}>
                 <option value="">— pick from inventory —</option>
                 {ownedMagicItems.map((i) => (
                   <option key={i.id} value={i.id}>
                     {i.name}
                     {i.rarity ? ` (${i.rarity})` : ''}
+                    {minorPropertySuffix(i)}
                   </option>
                 ))}
               </select>
             </label>
+            {tradeLostItem && (tradeLostItem.minorProperty || tradeLostItem.description) && (
+              <p className="muted log-form-trade-note">
+                {tradeLostItem.minorProperty && <>Minor property: {tradeLostItem.minorProperty}</>}
+                {tradeLostItem.minorProperty && tradeLostItem.description && ' — '}
+                {tradeLostItem.description}
+              </p>
+            )}
+            {ownedMagicItems.length === 0 && (
+              <p className="warning">⚠ {character.name} owns no magic items to trade.</p>
+            )}
+          </fieldset>
+
+          <fieldset className="log-form-items log-form-trade-side">
+            <legend>↓ Received</legend>
             <label>
-              Magic item received *
+              Magic item *
               <input
                 value={tradeGainedName}
                 onChange={(e) => setTradeGainedName(e.target.value)}
                 placeholder="name of the item you got"
               />
             </label>
-          </div>
-          {tradeLostItem?.rarity && (
-            <p className="muted">
-              Received item will be recorded as <strong>{tradeLostItem.rarity}</strong> (same
-              rarity as the item traded away).
-            </p>
-          )}
-          {ownedMagicItems.length === 0 && (
-            <p className="warning">⚠ {character.name} owns no magic items to trade.</p>
-          )}
+            <div className="form-grid">
+              <label>
+                Minor property
+                <select
+                  value={tradeGainedMinorProperty}
+                  onChange={(e) =>
+                    setTradeGainedMinorProperty(e.target.value as MinorProperty | '')
+                  }
+                >
+                  <option value="">— none —</option>
+                  {MINOR_PROPERTIES.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Description
+                <input
+                  value={tradeGainedDescription}
+                  onChange={(e) => setTradeGainedDescription(e.target.value)}
+                  placeholder="description (optional)"
+                />
+              </label>
+            </div>
+            {tradeLostItem?.rarity && (
+              <p className="muted log-form-trade-note">
+                Will be recorded as <strong>{tradeLostItem.rarity}</strong> (same rarity as the
+                item given away).
+              </p>
+            )}
+          </fieldset>
         </>
       )}
 
@@ -700,6 +943,23 @@ export function LogForm({
                   ))}
                 </select>
               )}
+              {g.category === 'magic_item' && (
+                <select
+                  className="item-row-minor-property"
+                  value={g.minorProperty}
+                  title="Minor property (at most one, optional)"
+                  onChange={(e) =>
+                    updateGain(g.key, { minorProperty: e.target.value as MinorProperty | '' })
+                  }
+                >
+                  <option value="">— none —</option>
+                  {MINOR_PROPERTIES.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              )}
               <input
                 className="item-row-qty"
                 type="number"
@@ -750,6 +1010,7 @@ export function LogForm({
                   <option key={i.id} value={i.id}>
                     {i.name} ({CATEGORY_LABELS_SINGULAR[i.category]}
                     {i.remaining > 1 ? `, ×${i.remaining}` : ''})
+                    {minorPropertySuffix(i)}
                   </option>
                 ))}
               </select>

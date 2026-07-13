@@ -38,6 +38,7 @@ const TYPE_BADGE: Record<LogType, string> = {
   catchup: 'badge-catchup',
   transaction: 'badge-transaction',
   purchase: 'badge-purchase',
+  creation: 'badge-creation',
   free: 'badge-free',
 };
 
@@ -47,7 +48,7 @@ export function LogHistory({ logs, derived, onEditLog, onDeleteLog }: Props) {
       <div className="empty-state">
         <p>No logs yet.</p>
         <p className="muted">
-          Tip: start with a <strong>Free Log</strong> recording the character's starting level,
+          Tip: start with a <strong>Creation</strong> log recording the character's starting
           gold and equipment.
         </p>
       </div>
@@ -130,7 +131,8 @@ export function LogHistory({ logs, derived, onEditLog, onDeleteLog }: Props) {
                     {item.quantity > 1 ? ` ×${item.quantity}` : ''}{' '}
                     <span className="muted">
                       ({CATEGORY_LABELS_SINGULAR[item.category]}
-                      {item.rarity ? `, ${item.rarity}` : ''})
+                      {item.rarity ? `, ${item.rarity}` : ''}
+                      {item.minorProperty ? `, ${item.minorProperty}` : ''})
                     </span>
                   </li>
                 ))}

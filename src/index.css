@@ -159,6 +159,7 @@ h2 {
 .badge-catchup { background: #453a63; color: #c3b4ee; }
 .badge-transaction { background: #24455a; color: #9fd0ec; }
 .badge-purchase { background: #5a4424; color: #ecd09f; }
+.badge-creation { background: #1f4f4a; color: #9fe8dc; }
 .badge-free { background: #3d3d47; color: #c9c9d4; }
 
 /* ---- Cards / layout ---- */
@@ -546,6 +547,31 @@ textarea:focus {
   padding: 0 0.4rem;
 }
 
+/* Transaction log: visually separate the given-away side from the received side. */
+.log-form-trade-side {
+  border-left-width: 3px;
+}
+
+.log-form-trade-side:first-of-type {
+  border-left-color: var(--loss);
+}
+
+.log-form-trade-side:first-of-type legend {
+  color: var(--loss);
+}
+
+.log-form-trade-side:last-of-type {
+  border-left-color: var(--gain);
+}
+
+.log-form-trade-side:last-of-type legend {
+  color: var(--gain);
+}
+
+.log-form-trade-note {
+  margin: 0.4rem 0 0;
+}
+
 .item-row {
   display: flex;
   gap: 0.4rem;
@@ -574,6 +600,10 @@ span.item-row-name > * {
 
 .item-row-cost {
   width: 92px;
+}
+
+.item-row-minor-property {
+  flex: 1 1 150px;
 }
 
 .input-computed {

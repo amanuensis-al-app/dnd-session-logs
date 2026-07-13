@@ -97,6 +97,9 @@ export function Inventory({ character, derived, onSaveLog }: Props) {
                     </div>
                   )}
                   {item.description && <div className="inventory-item-desc muted">{item.description}</div>}
+                  {item.minorProperty && (
+                    <div className="inventory-item-desc muted">Minor property: {item.minorProperty}</div>
+                  )}
                   {!STACKED_CATEGORIES.includes(category) && (
                     <div className="inventory-item-meta muted">Acquired {item.acquiredDate}</div>
                   )}

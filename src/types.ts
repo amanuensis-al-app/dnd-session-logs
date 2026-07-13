@@ -46,9 +46,33 @@ export type Rarity = (typeof RARITIES)[number];
 /** Categories that carry a rarity. */
 export const RARITY_CATEGORIES: ItemCategory[] = ['magic_item', 'consumable'];
 
+/**
+ * 2024 DMG minor properties: a magic item may have up to one. Purely descriptive
+ * flavor text (no mechanical effect the tracker needs to act on), stored as a
+ * name on the GainedItem so it shows up in inventory and log history.
+ */
+export const MINOR_PROPERTIES = [
+  'Beacon',
+  'Compass',
+  'Delver',
+  'Guardian',
+  'Harmonious',
+  'Key',
+  'Secret Message',
+  'Sentinel',
+  'Songcraft',
+  'Strange Material',
+  'Temperate',
+  'Unbreakable',
+  'War Leader',
+  'Waterborne',
+] as const;
+
+export type MinorProperty = (typeof MINOR_PROPERTIES)[number];
+
 // ---- Logs -------------------------------------------------------------------
 
-export const LOG_TYPES = ['session', 'catchup', 'transaction', 'purchase', 'free'] as const;
+export const LOG_TYPES = ['session', 'catchup', 'transaction', 'purchase', 'creation', 'free'] as const;
 
 export type LogType = (typeof LOG_TYPES)[number];
 
@@ -57,6 +81,7 @@ export const LOG_TYPE_LABELS: Record<LogType, string> = {
   catchup: 'Catch Up',
   transaction: 'Transaction',
   purchase: 'Purchase',
+  creation: 'Creation',
   free: 'Free Log',
 };
 
@@ -88,6 +113,8 @@ export interface GainedItem {
   quantity: number;
   /** Not used by stacked categories. */
   description?: string;
+  /** Magic items only: at most one of MINOR_PROPERTIES. */
+  minorProperty?: MinorProperty;
   /** Purchase price per unit in GP. Recorded by purchase logs, which derive their GP spent from it. */
   cost?: number;
 }

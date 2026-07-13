@@ -83,8 +83,8 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
         <div className="empty-state">
           <p>No characters yet.</p>
           <p className="muted">
-            Create a character, then use a <strong>Free Log</strong> to record their starting
-            level and equipment.
+            Create a character, then use a <strong>Creation</strong> log to record their
+            starting gold and equipment.
           </p>
         </div>
       ) : (

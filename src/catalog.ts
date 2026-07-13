@@ -15,6 +15,524 @@ function section(group: string, items: Omit<CatalogItem, 'group'>[]): CatalogIte
   return items.map((item) => ({ ...item, group }));
 }
 
+// ---- Character creation packages ---------------------------------------------
+
+/** One starting-equipment grant; quantity defaults to 1. All are equipment. */
+export interface CreationItem {
+  name: string;
+  quantity?: number;
+}
+
+/** One of the pickable starting packages of a creation source (Option A / B). */
+export interface CreationOption {
+  gp: number;
+  items: CreationItem[];
+}
+
+/** A background or class offering starting-equipment options. */
+export interface CreationSource {
+  name: string;
+  /** Option A (equipment package), then Option B (usually gold only), … */
+  options: CreationOption[];
+}
+
+/**
+ * 2024 PHB backgrounds: starting equipment Option A, or Option B (50 GP).
+ * Picking one prefills the creation log's gold and item rows — the rows stay
+ * editable, so "(any)" placeholder items (gaming set, instrument, artisan's
+ * tools) can be specialized by the player afterwards.
+ */
+export const CREATION_BACKGROUNDS: CreationSource[] = [
+  {
+    name: 'Custom Background',
+    options: [{ gp: 50, items: [] }],
+  },
+  {
+    name: 'Acolyte',
+    options: [
+      {
+        gp: 8,
+        items: [
+          { name: 'Calligrapher’s Supplies' },
+          { name: 'Book (prayers)' },
+          { name: 'Holy Symbol (any)' },
+          { name: 'Parchment', quantity: 10 },
+          { name: 'Robe' },
+        ],
+      },
+      { gp: 50, items: [] },
+    ],
+  },
+  {
+    name: 'Artisan',
+    options: [
+      {
+        gp: 32,
+        items: [
+          { name: 'Artisan’s Tools (any)' },
+          { name: 'Pouch', quantity: 2 },
+          { name: 'Traveler’s Clothes' },
+        ],
+      },
+      { gp: 50, items: [] },
+    ],
+  },
+  {
+    name: 'Charlatan',
+    options: [
+      {
+        gp: 15,
+        items: [{ name: 'Forgery Kit' }, { name: 'Costume' }, { name: 'Fine Clothes' }],
+      },
+      { gp: 50, items: [] },
+    ],
+  },
+  {
+    name: 'Criminal',
+    options: [
+      {
+        gp: 16,
+        items: [
+          { name: 'Dagger', quantity: 2 },
+          { name: 'Thieves’ Tools' },
+          { name: 'Crowbar' },
+          { name: 'Pouch', quantity: 2 },
+          { name: 'Traveler’s Clothes' },
+        ],
+      },
+      { gp: 50, items: [] },
+    ],
+  },
+  {
+    name: 'Entertainer',
+    options: [
+      {
+        gp: 11,
+        items: [
+          { name: 'Musical Instrument (any)' },
+          { name: 'Costume', quantity: 2 },
+          { name: 'Mirror' },
+          { name: 'Perfume' },
+          { name: 'Traveler’s Clothes' },
+        ],
+      },
+      { gp: 50, items: [] },
+    ],
+  },
+  {
+    name: 'Farmer',
+    options: [
+      {
+        gp: 30,
+        items: [
+          { name: 'Sickle' },
+          { name: 'Carpenter’s Tools' },
+          { name: 'Healer’s Kit' },
+          { name: 'Iron Pot' },
+          { name: 'Shovel' },
+          { name: 'Traveler’s Clothes' },
+        ],
+      },
+      { gp: 50, items: [] },
+    ],
+  },
+  {
+    name: 'Guard',
+    options: [
+      {
+        gp: 12,
+        items: [
+          { name: 'Spear' },
+          { name: 'Light Crossbow' },
+          { name: 'Bolt', quantity: 20 },
+          { name: 'Gaming Set (any)' },
+          { name: 'Hooded Lantern' },
+          { name: 'Manacles' },
+          { name: 'Quiver' },
+          { name: 'Traveler’s Clothes' },
+        ],
+      },
+      { gp: 50, items: [] },
+    ],
+  },
+  {
+    name: 'Guide',
+    options: [
+      {
+        gp: 3,
+        items: [
+          { name: 'Shortbow' },
+          { name: 'Arrow', quantity: 20 },
+          { name: 'Cartographer’s Tools' },
+          { name: 'Bedroll' },
+          { name: 'Quiver' },
+          { name: 'Tent' },
+          { name: 'Traveler’s Clothes' },
+        ],
+      },
+      { gp: 50, items: [] },
+    ],
+  },
+  {
+    name: 'Hermit',
+    options: [
+      {
+        gp: 16,
+        items: [
+          { name: 'Quarterstaff' },
+          { name: 'Herbalism Kit' },
+          { name: 'Bedroll' },
+          { name: 'Book (philosophy)' },
+          { name: 'Lamp' },
+          { name: 'Oil', quantity: 3 },
+          { name: 'Traveler’s Clothes' },
+        ],
+      },
+      { gp: 50, items: [] },
+    ],
+  },
+  {
+    name: 'Merchant',
+    options: [
+      {
+        gp: 22,
+        items: [
+          { name: 'Navigator’s Tools' },
+          { name: 'Pouch', quantity: 2 },
+          { name: 'Traveler’s Clothes' },
+        ],
+      },
+      { gp: 50, items: [] },
+    ],
+  },
+  {
+    name: 'Noble',
+    options: [
+      {
+        gp: 29,
+        items: [{ name: 'Gaming Set (any)' }, { name: 'Fine Clothes' }, { name: 'Perfume' }],
+      },
+      { gp: 50, items: [] },
+    ],
+  },
+  {
+    name: 'Sage',
+    options: [
+      {
+        gp: 8,
+        items: [
+          { name: 'Quarterstaff' },
+          { name: 'Calligrapher’s Supplies' },
+          { name: 'Book (history)' },
+          { name: 'Parchment', quantity: 8 },
+          { name: 'Robe' },
+        ],
+      },
+      { gp: 50, items: [] },
+    ],
+  },
+  {
+    name: 'Sailor',
+    options: [
+      {
+        gp: 20,
+        items: [
+          { name: 'Dagger' },
+          { name: 'Navigator’s Tools' },
+          { name: 'Rope' },
+          { name: 'Traveler’s Clothes' },
+        ],
+      },
+      { gp: 50, items: [] },
+    ],
+  },
+  {
+    name: 'Scribe',
+    options: [
+      {
+        gp: 23,
+        items: [
+          { name: 'Calligrapher’s Supplies' },
+          { name: 'Fine Clothes' },
+          { name: 'Lamp' },
+          { name: 'Oil', quantity: 3 },
+          { name: 'Parchment', quantity: 12 },
+        ],
+      },
+      { gp: 50, items: [] },
+    ],
+  },
+  {
+    name: 'Soldier',
+    options: [
+      {
+        gp: 14,
+        items: [
+          { name: 'Spear' },
+          { name: 'Shortbow' },
+          { name: 'Arrow', quantity: 20 },
+          { name: 'Gaming Set (any)' },
+          { name: 'Healer’s Kit' },
+          { name: 'Quiver' },
+          { name: 'Traveler’s Clothes' },
+        ],
+      },
+      { gp: 50, items: [] },
+    ],
+  },
+  {
+    name: 'Wayfarer',
+    options: [
+      {
+        gp: 16,
+        items: [
+          { name: 'Dagger', quantity: 2 },
+          { name: 'Thieves’ Tools' },
+          { name: 'Gaming Set (any)' },
+          { name: 'Bedroll' },
+          { name: 'Pouch', quantity: 2 },
+          { name: 'Traveler’s Clothes' },
+        ],
+      },
+      { gp: 50, items: [] },
+    ],
+  },
+];
+
+/**
+ * 2024 PHB classes: starting equipment Option A/B (Fighter: A/B/C), or gold only.
+ * Same prefill behavior as backgrounds — a Creation log sums the background pick
+ * and the class pick. Placeholder items ("Musical Instrument (any)", combined
+ * choices like Monk's tool-or-instrument) are left as free text for the player
+ * to specialize, same convention as the background packages.
+ */
+export const CREATION_CLASSES: CreationSource[] = [
+  {
+    name: 'Artificer',
+    options: [
+      {
+        gp: 16,
+        items: [
+          { name: 'Studded Leather Armor' },
+          { name: 'Dagger' },
+          { name: 'Thieves’ Tools' },
+          { name: 'Tinker’s Tools' },
+          { name: 'Dungeoneer’s Pack' },
+        ],
+      },
+      { gp: 150, items: [] },
+    ],
+  },
+  {
+    name: 'Barbarian',
+    options: [
+      {
+        gp: 15,
+        items: [
+          { name: 'Greataxe' },
+          { name: 'Handaxe', quantity: 4 },
+          { name: 'Explorer’s Pack' },
+        ],
+      },
+      { gp: 75, items: [] },
+    ],
+  },
+  {
+    name: 'Bard',
+    options: [
+      {
+        gp: 19,
+        items: [
+          { name: 'Leather Armor' },
+          { name: 'Dagger', quantity: 2 },
+          { name: 'Musical Instrument (any)' },
+          { name: 'Entertainer’s Pack' },
+        ],
+      },
+      { gp: 90, items: [] },
+    ],
+  },
+  {
+    name: 'Cleric',
+    options: [
+      {
+        gp: 7,
+        items: [
+          { name: 'Chain Shirt' },
+          { name: 'Shield' },
+          { name: 'Mace' },
+          { name: 'Holy Symbol (any)' },
+          { name: 'Priest’s Pack' },
+        ],
+      },
+      { gp: 110, items: [] },
+    ],
+  },
+  {
+    name: 'Druid',
+    options: [
+      {
+        gp: 9,
+        items: [
+          { name: 'Leather Armor' },
+          { name: 'Shield' },
+          { name: 'Sickle' },
+          { name: 'Druidic Focus (Quarterstaff)' },
+          { name: 'Explorer’s Pack' },
+          { name: 'Herbalism Kit' },
+        ],
+      },
+      { gp: 50, items: [] },
+    ],
+  },
+  {
+    name: 'Fighter',
+    options: [
+      {
+        gp: 4,
+        items: [
+          { name: 'Chain Mail' },
+          { name: 'Greatsword' },
+          { name: 'Flail' },
+          { name: 'Javelin', quantity: 8 },
+          { name: 'Dungeoneer’s Pack' },
+        ],
+      },
+      {
+        gp: 11,
+        items: [
+          { name: 'Studded Leather Armor' },
+          { name: 'Scimitar' },
+          { name: 'Shortsword' },
+          { name: 'Longbow' },
+          { name: 'Arrow', quantity: 20 },
+          { name: 'Quiver' },
+          { name: 'Dungeoneer’s Pack' },
+        ],
+      },
+      { gp: 155, items: [] },
+    ],
+  },
+  {
+    name: 'Monk',
+    options: [
+      {
+        gp: 11,
+        items: [
+          { name: 'Spear' },
+          { name: 'Dagger', quantity: 5 },
+          { name: 'Artisan’s Tools or Musical Instrument (any)' },
+          { name: 'Explorer’s Pack' },
+        ],
+      },
+      { gp: 50, items: [] },
+    ],
+  },
+  {
+    name: 'Paladin',
+    options: [
+      {
+        gp: 9,
+        items: [
+          { name: 'Chain Mail' },
+          { name: 'Shield' },
+          { name: 'Longsword' },
+          { name: 'Javelin', quantity: 6 },
+          { name: 'Holy Symbol (any)' },
+          { name: 'Priest’s Pack' },
+        ],
+      },
+      { gp: 150, items: [] },
+    ],
+  },
+  {
+    name: 'Ranger',
+    options: [
+      {
+        gp: 7,
+        items: [
+          { name: 'Studded Leather Armor' },
+          { name: 'Scimitar' },
+          { name: 'Shortsword' },
+          { name: 'Longbow' },
+          { name: 'Arrow', quantity: 20 },
+          { name: 'Quiver' },
+          { name: 'Druidic Focus (Sprig of Mistletoe)' },
+          { name: 'Explorer’s Pack' },
+        ],
+      },
+      { gp: 150, items: [] },
+    ],
+  },
+  {
+    name: 'Rogue',
+    options: [
+      {
+        gp: 8,
+        items: [
+          { name: 'Leather Armor' },
+          { name: 'Dagger', quantity: 2 },
+          { name: 'Shortsword' },
+          { name: 'Shortbow' },
+          { name: 'Arrow', quantity: 20 },
+          { name: 'Quiver' },
+          { name: 'Thieves’ Tools' },
+          { name: 'Burglar’s Pack' },
+        ],
+      },
+      { gp: 100, items: [] },
+    ],
+  },
+  {
+    name: 'Sorcerer',
+    options: [
+      {
+        gp: 28,
+        items: [
+          { name: 'Spear' },
+          { name: 'Dagger', quantity: 2 },
+          { name: 'Arcane Focus (Crystal)' },
+          { name: 'Dungeoneer’s Pack' },
+        ],
+      },
+      { gp: 50, items: [] },
+    ],
+  },
+  {
+    name: 'Warlock',
+    options: [
+      {
+        gp: 15,
+        items: [
+          { name: 'Leather Armor' },
+          { name: 'Sickle' },
+          { name: 'Dagger', quantity: 2 },
+          { name: 'Arcane Focus (Orb)' },
+          { name: 'Book (occult lore)' },
+          { name: 'Scholar’s Pack' },
+        ],
+      },
+      { gp: 100, items: [] },
+    ],
+  },
+  {
+    name: 'Wizard',
+    options: [
+      {
+        gp: 5,
+        items: [
+          { name: 'Dagger', quantity: 2 },
+          { name: 'Arcane Focus (Quarterstaff)' },
+          { name: 'Robe' },
+          { name: 'Spellbook' },
+          { name: 'Scholar’s Pack' },
+        ],
+      },
+      { gp: 55, items: [] },
+    ],
+  },
+];
+
 /**
  * Hardcoded common items offered in the item-name dropdown when gaining an item.
  * Picking one auto-fills its rarity, and (in a purchase log) its cost; users can
@@ -134,9 +652,8 @@ export const ITEM_CATALOG: Partial<Record<ItemCategory, CatalogItem[]>> = {
     ]),
     // Comma-inverted PHB table names ("Lantern, Bullseye") are naturalized the way the
     // PHB's own prose writes them, and the list re-alphabetized by the natural name.
-    // Deliberately absent: Ammunition, Arcane/Druidic Focus and Holy Symbol (cost
-    // "Varies" — no single price to auto-fill), and Potion of Healing (already a
-    // consumable; a second equipment entry would create a separate stack).
+    // Deliberately absent: Potion of Healing (already a consumable; a second
+    // equipment entry would create a separate stack).
     ...section('Adventuring Gear', [
       { name: 'Acid', cost: 25 },
       { name: 'Alchemist’s Fire', cost: 50 },
@@ -215,6 +732,31 @@ export const ITEM_CATALOG: Partial<Record<ItemCategory, CatalogItem[]>> = {
       { name: 'Traveler’s Clothes', cost: 2 },
       { name: 'Vial', cost: 1 },
       { name: 'Waterskin', cost: 0.2 },
+    ]),
+    // Ammunition is priced per unit (the PHB sells bundles: 20 for 1 GP) so a
+    // purchase row's qty × cost works and the names stack with the creation
+    // packages' Arrow ×20 / Bolt ×20 grants. Firearm/sling bullets and needles
+    // are omitted (never used).
+    ...section('Ammunition', [
+      { name: 'Arrow', cost: 0.05 },
+      { name: 'Bolt', cost: 0.05 },
+    ]),
+    ...section('Arcane Focuses', [
+      { name: 'Arcane Focus (Crystal)', cost: 10 },
+      { name: 'Arcane Focus (Orb)', cost: 20 },
+      { name: 'Arcane Focus (Rod)', cost: 10 },
+      { name: 'Arcane Focus (Staff)', cost: 5 },
+      { name: 'Arcane Focus (Wand)', cost: 10 },
+    ]),
+    ...section('Druidic Focuses', [
+      { name: 'Druidic Focus (Sprig of Mistletoe)', cost: 1 },
+      { name: 'Druidic Focus (Wooden Staff)', cost: 5 },
+      { name: 'Druidic Focus (Yew Wand)', cost: 10 },
+    ]),
+    ...section('Holy Symbols', [
+      { name: 'Holy Symbol (Amulet)', cost: 5 },
+      { name: 'Holy Symbol (Emblem)', cost: 5 },
+      { name: 'Holy Symbol (Reliquary)', cost: 5 },
     ]),
     ...section('Mounts and Other Animals', [
       { name: 'Camel', cost: 50 },
