@@ -153,38 +153,59 @@ export function CharacterSheet({
         </button>
       </div>
 
-      {logDraft !== null && (
-        /* hidden, not unmounted, off the Logs tab — a half-typed draft must survive
-           switching to Inventory and back */
-        <div hidden={tab !== 'logs'}>
-          <LogForm
-            key={logDraft === 'new' ? 'new' : logDraft.id}
-            character={character}
-            derived={derived}
-            characterLogs={characterLogs}
-            knownDMs={knownValues(logs, 'dm')}
-            knownLocations={knownValues(logs, 'location')}
-            existingLog={logDraft === 'new' ? undefined : logDraft}
-            onSave={(log) => {
-              onSaveLog(log);
-              setLogDraft(null);
-              setTab('logs');
-            }}
-            onCancel={() => setLogDraft(null)}
-          />
-        </div>
-      )}
+      {/* Built once; rendered at the top when adding, or in place of the edited
+          log inside LogHistory when editing. */}
+      {(() => {
+        const logForm =
+          logDraft !== null ? (
+            <LogForm
+              key={logDraft === 'new' ? 'new' : logDraft.id}
+              character={character}
+              derived={derived}
+              characterLogs={characterLogs}
+              knownDMs={knownValues(logs, 'dm')}
+              knownLocations={knownValues(logs, 'location')}
+              existingLog={logDraft === 'new' ? undefined : logDraft}
+              onSave={(log) => {
+                onSaveLog(log);
+                setLogDraft(null);
+                setTab('logs');
+              }}
+              onCancel={() => setLogDraft(null)}
+            />
+          ) : null;
 
-      {tab === 'inventory' ? (
-        <Inventory character={character} derived={derived} onSaveLog={onSaveLog} />
-      ) : (
-        <LogHistory
-          logs={characterLogs}
-          derived={derived}
-          onEditLog={(log) => setLogDraft(log)}
-          onDeleteLog={onDeleteLog}
-        />
-      )}
+        return (
+          <>
+            {logDraft === 'new' && (
+              /* hidden, not unmounted, off the Logs tab — a half-typed draft must
+                 survive switching to Inventory and back */
+              <div hidden={tab !== 'logs'}>{logForm}</div>
+            )}
+
+            {tab === 'inventory' && (
+              <Inventory character={character} derived={derived} onSaveLog={onSaveLog} />
+            )}
+            {/* Always mounted (hidden off the Logs tab) so an in-place edit form's
+               draft survives tab switches, same as the add form above. */}
+            <div hidden={tab !== 'logs'}>
+              <LogHistory
+                logs={characterLogs}
+                derived={derived}
+                editingLogId={logDraft !== null && logDraft !== 'new' ? logDraft.id : undefined}
+                editForm={logDraft !== 'new' ? logForm : null}
+                onEditLog={(log) => setLogDraft(log)}
+                onDeleteLog={(logId) => {
+                  if (logDraft !== null && logDraft !== 'new' && logDraft.id === logId) {
+                    setLogDraft(null);
+                  }
+                  onDeleteLog(logId);
+                }}
+              />
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }

@@ -29,6 +29,9 @@ interface Props {
   /** Already filtered to one character and sorted in replay order. */
   logs: LogEntry[];
   derived: DerivedStats;
+  /** When set, the matching log's card is replaced by `editForm` in place. */
+  editingLogId?: string;
+  editForm?: React.ReactNode;
   onEditLog: (log: LogEntry) => void;
   onDeleteLog: (logId: string) => void;
 }
@@ -43,7 +46,14 @@ const TYPE_BADGE: Record<LogType, string> = {
   free: 'badge-free',
 };
 
-export function LogHistory({ logs, derived, onEditLog, onDeleteLog }: Props) {
+export function LogHistory({
+  logs,
+  derived,
+  editingLogId,
+  editForm,
+  onEditLog,
+  onDeleteLog,
+}: Props) {
   if (logs.length === 0) {
     return (
       <div className="empty-state">
@@ -63,7 +73,22 @@ export function LogHistory({ logs, derived, onEditLog, onDeleteLog }: Props) {
 
   return (
     <div className="log-history">
-      {display.map((log) => (
+      {display.map((log) =>
+        log.id === editingLogId && editForm ? (
+          /* Keep the entry's card header while the edit form replaces its body. */
+          <article key={log.id} className="card log-entry log-entry-editing">
+            <header className="log-entry-header">
+              <span className={`badge ${TYPE_BADGE[log.type]}`}>{LOG_TYPE_LABELS[log.type]}</span>
+              <span className="log-entry-title">{log.title || '(untitled)'}</span>
+              {/* CSS hides this while the form is expanded (its Date field shows it). */}
+              <span className="muted log-entry-date">
+                {log.date}
+                {log.time ? ` ${log.time}` : ''}
+              </span>
+            </header>
+            {editForm}
+          </article>
+        ) : (
         <article key={log.id} className="card log-entry">
           <header className="log-entry-header">
             <span className={`badge ${TYPE_BADGE[log.type]}`}>{LOG_TYPE_LABELS[log.type]}</span>
@@ -153,7 +178,8 @@ export function LogHistory({ logs, derived, onEditLog, onDeleteLog }: Props) {
             {log.notes && <div className="log-notes muted">{log.notes}</div>}
           </div>
         </article>
-      ))}
+        ),
+      )}
     </div>
   );
 }

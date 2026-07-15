@@ -578,9 +578,8 @@ export function LogForm({
     return (
       <div className="card log-form log-form-minimized">
         <span className="muted">
-          {editing
-            ? `✎ Editing “${existingLog.title || existingLog.date}”`
-            : `New ${LOG_TYPE_LABELS[type]} (draft)`}
+          {/* When editing, the entry's card header above already names the log. */}
+          {editing ? '✎ Editing (draft kept)' : `New ${LOG_TYPE_LABELS[type]} (draft)`}
         </span>
         <button type="button" className="btn btn-ghost btn-small" onClick={() => setMinimized(false)}>
           ▾ Expand
@@ -613,11 +612,6 @@ export function LogForm({
           </button>
         ))}
       </div>
-      {editing && (
-        <p className="log-form-editing">
-          ✎ Editing “{existingLog.title || existingLog.date}” — saving updates the log in place.
-        </p>
-      )}
       <p className="muted log-form-help">{TYPE_HELP[type]}</p>
       {downtimeWarning && (
         <p className="warning">
