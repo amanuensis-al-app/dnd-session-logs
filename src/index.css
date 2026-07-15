@@ -159,6 +159,7 @@ h2 {
 .badge-catchup { background: #453a63; color: #c3b4ee; }
 .badge-transaction { background: #24455a; color: #9fd0ec; }
 .badge-purchase { background: #5a4424; color: #ecd09f; }
+.badge-sell { background: #4d5a24; color: #d9ec9f; }
 .badge-creation { background: #1f4f4a; color: #9fe8dc; }
 .badge-free { background: #3d3d47; color: #c9c9d4; }
 
@@ -176,6 +177,24 @@ h2 {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
+}
+
+.page-heading-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.import-warnings {
+  max-height: 14rem;
+  overflow-y: auto;
+  margin: 0 0 0.75rem;
+  padding-left: 1.25rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.import-warnings li {
+  margin-bottom: 0.35rem;
 }
 
 .empty-state {

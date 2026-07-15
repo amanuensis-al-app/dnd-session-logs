@@ -75,6 +75,15 @@ export default function App() {
     markChanged();
   }
 
+  async function importCharacter(character: Character, importedLogs: LogEntry[]) {
+    await db.putCharacter(character);
+    for (const log of importedLogs) await db.putLog(log);
+    setCharacters((prev) => [...prev, character]);
+    setLogs((prev) => [...prev, ...importedLogs]);
+    markChanged();
+    setView({ screen: 'character', characterId: character.id });
+  }
+
   async function saveLog(log: LogEntry) {
     await db.putLog(log);
     setLogs((prev) => {
@@ -192,6 +201,7 @@ export default function App() {
             derivedByCharacter={derivedByCharacter}
             onOpen={(id) => setView({ screen: 'character', characterId: id })}
             onCreate={saveCharacter}
+            onImport={importCharacter}
           />
         )}
       </main>

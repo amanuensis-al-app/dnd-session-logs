@@ -38,6 +38,7 @@ const TYPE_BADGE: Record<LogType, string> = {
   catchup: 'badge-catchup',
   transaction: 'badge-transaction',
   purchase: 'badge-purchase',
+  sell: 'badge-sell',
   creation: 'badge-creation',
   free: 'badge-free',
 };

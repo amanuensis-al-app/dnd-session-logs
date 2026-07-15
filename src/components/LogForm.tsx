@@ -25,11 +25,13 @@ import {
 } from '../types';
 import { CREATION_BACKGROUNDS, CREATION_CLASSES, ITEM_CATALOG } from '../catalog';
 import type { CreationOption } from '../catalog';
-import { formatGp } from '../derive';
+import { formatGp, sortLogs } from '../derive';
 
 interface Props {
   character: Character;
   derived: DerivedStats;
+  /** All of this character's logs, for looking up what an item was bought for. */
+  characterLogs: LogEntry[];
   /** Every DM name ever logged, for the dropdown. */
   knownDMs: string[];
   /** Every location ever logged, for the dropdown. */
@@ -134,6 +136,7 @@ const TYPE_HELP: Record<LogType, string> = {
   catchup: 'Downtime activity: spend 10 downtime days per level gained.',
   transaction: 'Trade a magic item for another of the same rarity. Costs 5 downtime days.',
   purchase: 'Spend gold on equipment or consumables.',
+  sell: 'Sell equipment for gold. The price prefills at half of what you paid (or half list price).',
   creation: 'Character creation: starting gold and equipment. Pick a background to prefill.',
   free: 'Record anything: DM rewards, corrections…',
 };
@@ -158,6 +161,8 @@ interface LossDraft {
   itemId: string;
   quantity: string;
   reason: LossReason;
+  /** Sale price per unit in GP; only shown (and saved) for sell logs. */
+  salePrice: string;
 }
 
 function emptyGain(category: ItemCategory = 'magic_item'): GainDraft {
@@ -174,7 +179,7 @@ function emptyGain(category: ItemCategory = 'magic_item'): GainDraft {
 }
 
 function emptyLoss(reason: LossReason = 'used'): LossDraft {
-  return { key: newId(), itemId: '', quantity: '1', reason };
+  return { key: newId(), itemId: '', quantity: '1', reason, salePrice: '' };
 }
 
 function num(value: string): number {
@@ -190,6 +195,7 @@ function minorPropertySuffix(item: { minorProperty?: MinorProperty }): string {
 export function LogForm({
   character,
   derived,
+  characterLogs,
   knownDMs,
   knownLocations,
   existingLog,
@@ -235,14 +241,26 @@ export function LogForm({
     }
     return drafts;
   });
-  const [losses, setLosses] = useState<LossDraft[]>(() =>
-    (existingLog?.itemsLost ?? []).map((lost, i) => ({
+  const [losses, setLosses] = useState<LossDraft[]>(() => {
+    const drafts = (existingLog?.itemsLost ?? []).map((lost, i) => ({
       key: `${lost.itemId}:${i}`,
       itemId: lost.itemId,
       quantity: String(lost.quantity),
       reason: lost.reason,
-    })),
-  );
+      salePrice: lost.salePrice != null ? String(lost.salePrice) : '',
+    }));
+    // Sell logs saved without per-item prices (imports may not know them) only stored
+    // the total; put it back on a sole item so the recomputed GP gained matches.
+    if (
+      existingLog?.type === 'sell' &&
+      drafts.length === 1 &&
+      drafts[0].salePrice === '' &&
+      existingLog.gpGained > 0
+    ) {
+      drafts[0].salePrice = String(existingLog.gpGained / Math.max(1, existingLog.itemsLost[0].quantity));
+    }
+    return drafts;
+  });
   // Creation-specific: which background/option and class/option are selected.
   // Not stored on the log — picking these just prefills the gold and item rows
   // below (as the sum of both picks), which stay freely editable afterward.
@@ -279,6 +297,31 @@ export function LogForm({
     () => ownedItems.filter((i) => i.category === 'magic_item'),
     [ownedItems],
   );
+  const ownedEquipment = useMemo(
+    () => ownedItems.filter((i) => i.category === 'equipment'),
+    [ownedItems],
+  );
+
+  // What each (stacked) item was last bought for, per unit — sell prices prefill at
+  // half of this, falling back to half the catalog list price, else 0.
+  const purchaseCostById = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const log of sortLogs(characterLogs)) {
+      if (log.type !== 'purchase') continue;
+      for (const item of log.itemsGained) {
+        if (item.cost != null) map.set(item.id, item.cost);
+      }
+    }
+    return map;
+  }, [characterLogs]);
+
+  function sellPriceFor(itemId: string): number {
+    const bought = purchaseCostById.get(itemId);
+    if (bought != null) return Math.round(bought * 50) / 100;
+    const name = ownedItems.find((i) => i.id === itemId)?.name;
+    const entry = name && ITEM_CATALOG.equipment?.find((c) => c.name === name);
+    return entry ? Math.round(entry.cost * 50) / 100 : 0;
+  }
 
   // When editing, this log's own downtime effect is already in the derived total —
   // back it out so the "not enough downtime" warning stays truthful.
@@ -292,6 +335,16 @@ export function LogForm({
     Math.round(
       gains.reduce(
         (sum, g) => sum + Math.max(0, num(g.cost)) * Math.max(1, Math.round(num(g.quantity))),
+        0,
+      ) * 100,
+    ) / 100;
+
+  // Sell logs derive their GP gained from the sale prices (rounded to copper).
+  const sellTotal =
+    Math.round(
+      losses.reduce(
+        (sum, l) =>
+          sum + Math.max(0, num(l.salePrice)) * Math.max(1, Math.round(num(l.quantity))),
         0,
       ) * 100,
     ) / 100;
@@ -454,6 +507,24 @@ export function LogForm({
           gpLost: purchaseTotal,
           itemsGained: gainedItems,
         };
+      case 'sell': {
+        const sold = losses.filter((l) => l.itemId);
+        if (sold.length === 0) return 'Pick at least one equipment item to sell.';
+        const names = sold.map(
+          (l) => ownedItems.find((i) => i.id === l.itemId)?.name ?? 'item',
+        );
+        return {
+          ...base,
+          title: base.title || `Sold ${names.join(', ')}`,
+          gpGained: sellTotal,
+          itemsLost: sold.map((l) => ({
+            itemId: l.itemId,
+            quantity: Math.max(1, Math.round(num(l.quantity))),
+            reason: 'sold' as const,
+            salePrice: l.salePrice.trim() !== '' ? Math.max(0, num(l.salePrice)) : undefined,
+          })),
+        };
+      }
       case 'creation': {
         const creationDesc = [creationBackground, creationClass].filter(Boolean).join(' / ');
         return {
@@ -663,6 +734,83 @@ export function LogForm({
             <input className="input-computed" value={purchaseTotal} readOnly tabIndex={-1} />
           </label>
         </div>
+      )}
+
+      {type === 'sell' && (
+        <>
+          <div className="form-grid">
+            <label>
+              <span>
+                GP gained <span className="muted">(auto: Σ price × qty)</span>
+              </span>
+              <input className="input-computed" value={sellTotal} readOnly tabIndex={-1} />
+            </label>
+          </div>
+          <fieldset className="log-form-items">
+            <legend>Equipment sold</legend>
+            {losses.map((l) => (
+              <div key={l.key} className="item-row">
+                <select
+                  className="item-row-name"
+                  value={l.itemId}
+                  onChange={(e) => {
+                    const itemId = e.target.value;
+                    // Picking an item prefills its per-unit sale price: half the last
+                    // purchase price, else half the catalog price, else 0.
+                    updateLoss(l.key, {
+                      itemId,
+                      salePrice: itemId ? String(sellPriceFor(itemId)) : '',
+                    });
+                  }}
+                >
+                  <option value="">— pick equipment from inventory —</option>
+                  {ownedEquipment.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.name}
+                      {i.remaining > 1 ? ` (×${i.remaining})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className="item-row-cost"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={l.salePrice}
+                  onChange={(e) => updateLoss(l.key, { salePrice: e.target.value })}
+                  placeholder="gp each"
+                  title="Sale price per unit in GP"
+                />
+                <input
+                  className="item-row-qty"
+                  type="number"
+                  min="1"
+                  value={l.quantity}
+                  onChange={(e) => updateLoss(l.key, { quantity: e.target.value })}
+                  title="Quantity"
+                />
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-small"
+                  onClick={() => setLosses((prev) => prev.filter((x) => x.key !== l.key))}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => setLosses((prev) => [...prev, emptyLoss('sold')])}
+              disabled={ownedEquipment.length === 0}
+            >
+              + Add item
+            </button>
+            {ownedEquipment.length === 0 && (
+              <p className="warning">⚠ {character.name} owns no equipment to sell.</p>
+            )}
+          </fieldset>
+        </>
       )}
 
       {type === 'creation' && (

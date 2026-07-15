@@ -21,7 +21,9 @@ character's logs in date order. Fix a mistake by deleting the log; totals recomp
 | **Catch Up** | Spend 10 downtime days, gain 1 level. |
 | **Transaction** | Trade a magic item for another of the same rarity, spend 5 downtime days; records the trading partner. |
 | **Purchase** | Spend GP, gain equipment. |
-| **Free Log** | Anything else: character creation (starting level/gear), DM rewards, corrections. |
+| **Sell** | Sell equipment for GP. The sale price prefills at half of what you paid for it (from your purchase logs), else half the list price, else 0. |
+| **Creation** | Character creation: starting gold and equipment, with 2024 PHB background/class package prefills. |
+| **Free Log** | Anything else: DM rewards, corrections, higher starting levels. |
 
 Notes:
 - New characters start at level 1 — use a Free Log to record a higher starting level and equipment.
@@ -29,6 +31,31 @@ Notes:
   active (e.g. which blessing) is managed elsewhere (e.g. D&D Beyond).
 - Consumables, charms and story awards have a one-click **Use** button that records the use as a Free Log.
 - Boons are tracked as their own category (they count against the AL boon feat limit, unlike blessings).
+
+## Importing from adventurersleaguelog.com
+
+**Import AL Log** on the character screen reads a CSV export from
+[adventurersleaguelog.com](https://www.adventurersleaguelog.com) (one character per file) and
+creates the character with all their logs. You get a preview — derived level/GP/downtime and
+any caveats — before anything is saved.
+
+The AL Log format doesn't record everything, so the import is best-effort:
+
+- **Levels aren't in the export.** Every DM'd session imports as +1 level (the usual AL rule);
+  edit any session where you chose not to level.
+- **Consumables and equipment live as free text** in the AL Log notes. Bullet lines
+  (`* Potion of Healing`, `* Club 2x`, `* Shield (10GP)`) are parsed into real items with
+  quantity and cost where possible; the original notes are kept on the log so nothing is lost.
+  `*`, `•` and `+ ` bullets are items gained. `- ` bullets next to `+` bullets are items
+  **sold** — the entry splits into a Purchase log and a Sell log, each with its own gold math.
+  A purchase entry written *only* with dashes is ambiguous (some people just use `-` as their
+  bullet style), so the entry's gold decides: gold going out = a normal purchase of the listed
+  items, gold coming in = a sale of them. In session/free entries, `- ` bullets are items
+  used/lost.
+- Session entries with no DM, no location and no magic items import as **Free Logs**
+  (or **Catch Up** when they just spend a multiple of 10 downtime days).
+- Trade entries match the traded-away item by name against earlier logs; purchases that *gain*
+  gold (e.g. "starting equipment" logs) become Free Logs.
 
 ## Development
 

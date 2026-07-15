@@ -72,7 +72,7 @@ export type MinorProperty = (typeof MINOR_PROPERTIES)[number];
 
 // ---- Logs -------------------------------------------------------------------
 
-export const LOG_TYPES = ['session', 'catchup', 'transaction', 'purchase', 'creation', 'free'] as const;
+export const LOG_TYPES = ['session', 'catchup', 'transaction', 'purchase', 'sell', 'creation', 'free'] as const;
 
 export type LogType = (typeof LOG_TYPES)[number];
 
@@ -81,6 +81,7 @@ export const LOG_TYPE_LABELS: Record<LogType, string> = {
   catchup: 'Catch Up',
   transaction: 'Transaction',
   purchase: 'Purchase',
+  sell: 'Sell',
   creation: 'Creation',
   free: 'Free Log',
 };
@@ -134,6 +135,8 @@ export interface LostItem {
   itemId: string;
   quantity: number;
   reason: LossReason;
+  /** Sale price per unit in GP. Recorded by sell logs, which derive their GP gained from it. */
+  salePrice?: number;
 }
 
 export interface LogEntry {

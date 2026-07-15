@@ -161,6 +161,7 @@ export function CharacterSheet({
             key={logDraft === 'new' ? 'new' : logDraft.id}
             character={character}
             derived={derived}
+            characterLogs={characterLogs}
             knownDMs={knownValues(logs, 'dm')}
             knownLocations={knownValues(logs, 'location')}
             existingLog={logDraft === 'new' ? undefined : logDraft}

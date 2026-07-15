@@ -1,20 +1,25 @@
-import { useState } from 'react';
-import type { Character, DerivedStats } from '../types';
-import { newId } from '../types';
-import { formatGp } from '../derive';
+import { useRef, useState } from 'react';
+import type { Character, DerivedStats, LogEntry, LogType } from '../types';
+import { LOG_TYPE_LABELS, newId } from '../types';
+import { deriveCharacter, formatGp } from '../derive';
+import { importAlLog, type AlImportResult } from '../importAlLog';
+import { Modal } from './Modal';
 
 interface Props {
   characters: Character[];
   derivedByCharacter: Map<string, DerivedStats>;
   onOpen: (characterId: string) => void;
   onCreate: (character: Character) => void;
+  onImport: (character: Character, logs: LogEntry[]) => void;
 }
 
-export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate }: Props) {
+export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate, onImport }: Props) {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
   const [species, setSpecies] = useState('');
   const [charClass, setCharClass] = useState('');
+  const [importPreview, setImportPreview] = useState<AlImportResult | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,13 +37,49 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
     setCreating(false);
   }
 
+  async function handleImportFile(file: File) {
+    try {
+      setImportPreview(importAlLog(await file.text()));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Could not read that file.');
+    }
+  }
+
+  const preview = importPreview && deriveCharacter(importPreview.character, importPreview.logs);
+  const typeCounts =
+    importPreview &&
+    importPreview.logs.reduce((map, log) => {
+      map.set(log.type, (map.get(log.type) ?? 0) + 1);
+      return map;
+    }, new Map<LogType, number>());
+
   return (
     <div className="character-list">
       <div className="page-heading">
         <h1>Characters</h1>
-        <button className="btn btn-primary" onClick={() => setCreating((v) => !v)}>
-          {creating ? 'Cancel' : '+ New Character'}
-        </button>
+        <div className="page-heading-actions">
+          <button
+            className="btn btn-ghost"
+            onClick={() => importInputRef.current?.click()}
+            title="Import a character from an adventurersleaguelog.com CSV export"
+          >
+            Import AL Log
+          </button>
+          <button className="btn btn-primary" onClick={() => setCreating((v) => !v)}>
+            {creating ? 'Cancel' : '+ New Character'}
+          </button>
+        </div>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleImportFile(file);
+            e.target.value = '';
+          }}
+        />
       </div>
 
       {creating && (
@@ -109,6 +150,54 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
             );
           })}
         </div>
+      )}
+
+      {importPreview && preview && typeCounts && (
+        <Modal title="Import from Adventurers League Log" onClose={() => setImportPreview(null)}>
+          <p>
+            <strong>{importPreview.character.name}</strong>
+            {[importPreview.character.species, importPreview.character.class]
+              .filter(Boolean)
+              .map((s) => ` · ${s}`)
+              .join('')}
+          </p>
+          <p>
+            {importPreview.logs.length} log(s):{' '}
+            {[...typeCounts.entries()]
+              .map(([type, count]) => `${count} ${LOG_TYPE_LABELS[type]}`)
+              .join(', ') || 'none'}
+          </p>
+          <p>
+            Result: <strong>Lv {preview.level}</strong> · {formatGp(preview.gp)} gp ·{' '}
+            {preview.downtimeDays} downtime · {preview.inventory.length} item(s)
+          </p>
+          {importPreview.warnings.length > 0 && (
+            <>
+              <p className="muted">
+                Best-effort notes — review these after importing (each log stays editable):
+              </p>
+              <ul className="import-warnings">
+                {importPreview.warnings.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          <div className="modal-actions">
+            <button className="btn btn-ghost" onClick={() => setImportPreview(null)}>
+              Cancel
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                onImport(importPreview.character, importPreview.logs);
+                setImportPreview(null);
+              }}
+            >
+              Import Character
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   );
