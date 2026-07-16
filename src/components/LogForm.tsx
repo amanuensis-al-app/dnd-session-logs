@@ -38,6 +38,9 @@ interface Props {
   knownLocations: string[];
   /** When set, the form edits this log in place instead of creating a new one. */
   existingLog?: LogEntry;
+  /** Initial values for a NEW log (e.g. parsed from pasted text) — unlike existingLog,
+   * the log gets saved as a fresh entry and the type tabs stay enabled. */
+  prefill?: LogEntry;
   onSave: (log: LogEntry) => void;
   onCancel: () => void;
 }
@@ -199,26 +202,31 @@ export function LogForm({
   knownDMs,
   knownLocations,
   existingLog,
+  prefill,
   onSave,
   onCancel,
 }: Props) {
   const editing = existingLog !== undefined;
+  // Field initial values come from the edited log or a prefill draft; everything that
+  // must only apply while EDITING (id/createdAt reuse, locked type, downtime backout)
+  // keeps checking existingLog.
+  const initial = existingLog ?? prefill;
   const [minimized, setMinimized] = useState(false);
-  const [type, setType] = useState<LogType>(existingLog?.type ?? 'session');
-  const [date, setDate] = useState(() => existingLog?.date ?? new Date().toISOString().slice(0, 10));
-  const [time, setTime] = useState(existingLog?.time ?? '');
-  const [location, setLocation] = useState(existingLog?.location ?? '');
-  const [dm, setDm] = useState(existingLog?.dm ?? '');
-  const [title, setTitle] = useState(existingLog?.title ?? '');
-  const [notes, setNotes] = useState(existingLog?.notes ?? '');
-  const [tradePartner, setTradePartner] = useState(existingLog?.tradePartner ?? '');
-  const [gpGained, setGpGained] = useState(String(existingLog?.gpGained ?? 0));
-  const [gpLost, setGpLost] = useState(String(existingLog?.gpLost ?? 0));
-  const [downtimeGained, setDowntimeGained] = useState(String(existingLog?.downtimeGained ?? 10));
-  const [downtimeSpent, setDowntimeSpent] = useState(String(existingLog?.downtimeSpent ?? 0));
-  const [levelGained, setLevelGained] = useState(String(existingLog?.levelGained ?? 1));
+  const [type, setType] = useState<LogType>(initial?.type ?? 'session');
+  const [date, setDate] = useState(() => initial?.date ?? new Date().toISOString().slice(0, 10));
+  const [time, setTime] = useState(initial?.time ?? '');
+  const [location, setLocation] = useState(initial?.location ?? '');
+  const [dm, setDm] = useState(initial?.dm ?? '');
+  const [title, setTitle] = useState(initial?.title ?? '');
+  const [notes, setNotes] = useState(initial?.notes ?? '');
+  const [tradePartner, setTradePartner] = useState(initial?.tradePartner ?? '');
+  const [gpGained, setGpGained] = useState(String(initial?.gpGained ?? 0));
+  const [gpLost, setGpLost] = useState(String(initial?.gpLost ?? 0));
+  const [downtimeGained, setDowntimeGained] = useState(String(initial?.downtimeGained ?? 10));
+  const [downtimeSpent, setDowntimeSpent] = useState(String(initial?.downtimeSpent ?? 0));
+  const [levelGained, setLevelGained] = useState(String(initial?.levelGained ?? 1));
   const [gains, setGains] = useState<GainDraft[]>(() => {
-    const drafts = (existingLog?.itemsGained ?? []).map((item) => ({
+    const drafts = (initial?.itemsGained ?? []).map((item) => ({
       key: item.id,
       id: item.id,
       category: item.category,
@@ -242,7 +250,7 @@ export function LogForm({
     return drafts;
   });
   const [losses, setLosses] = useState<LossDraft[]>(() => {
-    const drafts = (existingLog?.itemsLost ?? []).map((lost, i) => ({
+    const drafts = (initial?.itemsLost ?? []).map((lost, i) => ({
       key: `${lost.itemId}:${i}`,
       itemId: lost.itemId,
       quantity: String(lost.quantity),

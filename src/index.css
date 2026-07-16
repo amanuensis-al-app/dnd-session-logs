@@ -710,6 +710,48 @@ span.item-row-name > * {
   margin-top: 0.4rem;
 }
 
+.modal-wide {
+  max-width: 660px;
+}
+
+/* ---- Add Log from Text ---- */
+
+.text-import textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  font-size: 0.85rem;
+}
+
+.text-import ol {
+  margin: 0.4rem 0 0.8rem;
+  padding-left: 1.3rem;
+}
+
+.text-import ol li {
+  margin-bottom: 0.45rem;
+}
+
+.text-import .modal-hint {
+  margin: 0.6rem 0 0;
+  font-size: 0.8rem;
+}
+
+.import-draft-warnings {
+  margin-bottom: 1rem;
+}
+
+.import-draft-warnings ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.sheet-toolbar-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 /* ---- Unexported-changes indicator ---- */
 
 .unbacked-indicator {

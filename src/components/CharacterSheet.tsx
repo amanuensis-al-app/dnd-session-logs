@@ -4,6 +4,11 @@ import { formatGp, knownValues, logsForCharacter } from '../derive';
 import { Inventory } from './Inventory';
 import { LogHistory } from './LogHistory';
 import { LogForm } from './LogForm';
+import { AddLogFromText } from './AddLogFromText';
+
+/** 'new' = adding, LogEntry = editing that log, prefill = new log parsed from
+ * pasted text (with review warnings), null = form closed. */
+type LogDraftState = 'new' | LogEntry | { prefill: LogEntry; warnings: string[] } | null;
 
 interface Props {
   character: Character;
@@ -27,8 +32,8 @@ export function CharacterSheet({
   onBack,
 }: Props) {
   const [tab, setTab] = useState<'inventory' | 'logs'>('inventory');
-  /** 'new' = adding, a LogEntry = editing that log, null = form closed. */
-  const [logDraft, setLogDraft] = useState<'new' | LogEntry | null>(null);
+  const [logDraft, setLogDraft] = useState<LogDraftState>(null);
+  const [showTextImport, setShowTextImport] = useState(false);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(character.name);
   const [species, setSpecies] = useState(character.species);
@@ -142,30 +147,56 @@ export function CharacterSheet({
             Logs ({characterLogs.length})
           </button>
         </div>
-        <button
-          className="btn btn-primary"
-          onClick={() => {
-            setLogDraft('new');
-            setTab('logs');
-          }}
-        >
-          + Add Log
-        </button>
+        <div className="sheet-toolbar-actions">
+          <button
+            className="btn"
+            title="Paste a session write-up (e.g. from Discord) and get the form prefilled"
+            onClick={() => setShowTextImport(true)}
+          >
+            + Add Log from Text
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              setLogDraft('new');
+              setTab('logs');
+            }}
+          >
+            + Add Log
+          </button>
+        </div>
       </div>
 
-      {/* Built once; rendered at the top when adding, or in place of the edited
-          log inside LogHistory when editing. */}
+      {showTextImport && (
+        <AddLogFromText
+          characterId={character.id}
+          onClose={() => setShowTextImport(false)}
+          onDraft={(log, warnings) => {
+            setShowTextImport(false);
+            setLogDraft({ prefill: log, warnings });
+            setTab('logs');
+          }}
+        />
+      )}
+
+      {/* Built once; rendered at the top when adding (blank or prefilled from text),
+          or in place of the edited log inside LogHistory when editing. */}
       {(() => {
+        const editingLog =
+          logDraft !== null && logDraft !== 'new' && !('prefill' in logDraft) ? logDraft : null;
+        const prefillDraft =
+          logDraft !== null && logDraft !== 'new' && 'prefill' in logDraft ? logDraft : null;
         const logForm =
           logDraft !== null ? (
             <LogForm
-              key={logDraft === 'new' ? 'new' : logDraft.id}
+              key={logDraft === 'new' ? 'new' : (editingLog?.id ?? prefillDraft?.prefill.id)}
               character={character}
               derived={derived}
               characterLogs={characterLogs}
               knownDMs={knownValues(logs, 'dm')}
               knownLocations={knownValues(logs, 'location')}
-              existingLog={logDraft === 'new' ? undefined : logDraft}
+              existingLog={editingLog ?? undefined}
+              prefill={prefillDraft?.prefill}
               onSave={(log) => {
                 onSaveLog(log);
                 setLogDraft(null);
@@ -177,10 +208,22 @@ export function CharacterSheet({
 
         return (
           <>
-            {logDraft === 'new' && (
+            {(logDraft === 'new' || prefillDraft) && (
               /* hidden, not unmounted, off the Logs tab — a half-typed draft must
                  survive switching to Inventory and back */
-              <div hidden={tab !== 'logs'}>{logForm}</div>
+              <div hidden={tab !== 'logs'}>
+                {prefillDraft && prefillDraft.warnings.length > 0 && (
+                  <div className="warning import-draft-warnings">
+                    <strong>Filled in from your text — please check:</strong>
+                    <ul>
+                      {prefillDraft.warnings.map((w, i) => (
+                        <li key={i}>{w}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {logForm}
+              </div>
             )}
 
             {tab === 'inventory' && (
@@ -192,11 +235,11 @@ export function CharacterSheet({
               <LogHistory
                 logs={characterLogs}
                 derived={derived}
-                editingLogId={logDraft !== null && logDraft !== 'new' ? logDraft.id : undefined}
-                editForm={logDraft !== 'new' ? logForm : null}
+                editingLogId={editingLog?.id}
+                editForm={editingLog ? logForm : null}
                 onEditLog={(log) => setLogDraft(log)}
                 onDeleteLog={(logId) => {
-                  if (logDraft !== null && logDraft !== 'new' && logDraft.id === logId) {
+                  if (editingLog?.id === logId) {
                     setLogDraft(null);
                   }
                   onDeleteLog(logId);

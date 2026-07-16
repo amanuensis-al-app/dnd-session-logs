@@ -137,13 +137,14 @@ const catalogByKey: Map<string, { item: CatalogItem; category: ItemCategory }> =
   return map;
 })();
 
-/** Try exact key, then naive singular/plural variants ("Tinker's Tool" → "Tinker's Tools"). */
-function lookupCatalog(name: string): { item: CatalogItem; category: ItemCategory } | undefined {
+/** Try exact key, then naive singular/plural variants ("Tinker's Tool" → "Tinker's Tools").
+ * Also used by the paste-a-recap importer (importText.ts). */
+export function lookupCatalog(name: string): { item: CatalogItem; category: ItemCategory } | undefined {
   const key = normalizeKey(name);
   return catalogByKey.get(key) ?? catalogByKey.get(`${key}s`) ?? catalogByKey.get(key.replace(/s$/, ''));
 }
 
-const CONSUMABLE_NAME_RE = /^(potion|oil|elixir|philter|philtre|scroll|spell scroll)\b/i;
+export const CONSUMABLE_NAME_RE = /^(potion|oil|elixir|philter|philtre|scroll|spell scroll)\b/i;
 
 // ---- Free-text item bullets ------------------------------------------------------
 

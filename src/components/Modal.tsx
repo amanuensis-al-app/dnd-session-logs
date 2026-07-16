@@ -4,10 +4,13 @@ import { useEffect, type ReactNode } from 'react';
 export function Modal({
   title,
   onClose,
+  wide = false,
   children,
 }: {
   title: string;
   onClose: () => void;
+  /** Wider dialog for content like pasted text. */
+  wide?: boolean;
   children: ReactNode;
 }) {
   useEffect(() => {
@@ -21,7 +24,7 @@ export function Modal({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className="modal card"
+        className={wide ? 'modal card modal-wide' : 'modal card'}
         role="dialog"
         aria-modal="true"
         aria-label={title}
