@@ -19,6 +19,7 @@ import {
   type AlImportResult,
   type NotesItem,
 } from './importAlLog';
+import { canonicalizeSpellScrollForImport, resolveSpellScroll } from './spells';
 
 /**
  * Importer for the owner's personal Google-Sheets log format ("DND Log Sheet").
@@ -242,6 +243,29 @@ export function importSheetLog(csvText: string, fileName?: string): AlImportResu
         ? 'blessing'
         : 'magic_item';
     const stripped = row.name.replace(/^\[boon\]\s*/i, '');
+
+    // The Magic Items column can carry spell scrolls too — recognize them so they land
+    // in the same consumable stack as scrolls from the Consumables column or notes.
+    if (category === 'magic_item') {
+      const scroll = canonicalizeSpellScrollForImport(stripped, row.rarity);
+      if (scroll.isSpellScroll) {
+        const item: GainedItem = {
+          id: stackedItemId({ category: 'consumable', name: scroll.name, rarity: scroll.rarity }),
+          name: scroll.name,
+          category: 'consumable',
+          rarity: scroll.rarity,
+          quantity: Math.max(1, row.count),
+        };
+        gainedMagic.push({
+          keys: [normalizeKey(row.name), normalizeKey(scroll.name)],
+          baseKey: baseNameKey(scroll.name),
+          id: item.id,
+          remaining: item.quantity,
+        });
+        return item;
+      }
+    }
+
     const { name, minorProperty } =
       category === 'magic_item' ? splitMinorProperty(stripped) : { name: stripped, minorProperty: undefined };
     const item: GainedItem = {
@@ -262,8 +286,11 @@ export function importSheetLog(csvText: string, fileName?: string): AlImportResu
   }
 
   function loseMagicByName(rawName: string, quantity: number, reason: LossReason, label: string): LostItem | null {
+    // Canonicalize so a loss recorded under either spell-scroll spelling still
+    // matches the id an earlier gain registered.
+    const canonicalName = resolveSpellScroll(rawName)?.name ?? rawName;
     for (const pass of [0, 1] as const) {
-      const needle = pass === 0 ? normalizeKey(rawName) : baseNameKey(rawName);
+      const needle = pass === 0 ? normalizeKey(canonicalName) : baseNameKey(canonicalName);
       for (let i = gainedMagic.length - 1; i >= 0; i--) {
         const g = gainedMagic[i];
         const match = pass === 0 ? g.keys.includes(needle) : g.baseKey === needle;
@@ -280,12 +307,13 @@ export function importSheetLog(csvText: string, fileName?: string): AlImportResu
   }
 
   function gainConsumableRow(row: SheetItemRow): GainedItem {
-    const c = canonicalConsumable(row.name, row.rarity);
+    const c0 = canonicalConsumable(row.name, row.rarity);
+    const scroll = canonicalizeSpellScrollForImport(c0.name, c0.rarity);
     return {
-      id: stackedItemId({ category: 'consumable', name: c.name, rarity: c.rarity }),
-      name: c.name,
+      id: stackedItemId({ category: 'consumable', name: scroll.name, rarity: scroll.rarity }),
+      name: scroll.name,
       category: 'consumable',
-      rarity: c.rarity,
+      rarity: scroll.rarity,
       quantity: Math.max(1, row.count),
     };
   }
@@ -299,7 +327,9 @@ export function importSheetLog(csvText: string, fileName?: string): AlImportResu
     reason: LossReason,
     label: string
   ): LostItem | null {
-    const c = canonicalConsumable(rawName, rarity);
+    const c0 = canonicalConsumable(rawName, rarity);
+    const scroll = canonicalizeSpellScrollForImport(c0.name, c0.rarity);
+    const c = { name: scroll.name, rarity: scroll.rarity };
     for (const category of ['consumable', 'equipment'] as const) {
       const id = stackedItemId({
         category,

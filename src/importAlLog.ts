@@ -8,6 +8,7 @@ import type {
 } from './types';
 import { newId, RARITIES, stackedItemId } from './types';
 import { ITEM_CATALOG, type CatalogItem } from './catalog';
+import { canonicalizeSpellScrollForImport, resolveSpellScroll } from './spells';
 
 /**
  * Importer for CSV exports from adventurersleaguelog.com ("Adventurers League Log").
@@ -223,12 +224,20 @@ export function parseNotesItems(
     if (!parsed) continue;
     if (skipGoldNotes && /\d[\d,]*(?:\.\d+)?\s*(pp|gp|ep|sp|cp)$/i.test(parsed.name)) continue;
     const match = lookupCatalog(parsed.name);
-    const category = match?.category ?? (CONSUMABLE_NAME_RE.test(parsed.name) ? 'consumable' : defaultCategory);
+    let category = match?.category ?? (CONSUMABLE_NAME_RE.test(parsed.name) ? 'consumable' : defaultCategory);
+    let name = match ? match.item.name : parsed.name; // canonical name so stacks merge
+    let rarity = match?.item.rarity;
+    const scroll = canonicalizeSpellScrollForImport(name, rarity);
+    if (scroll.isSpellScroll) {
+      name = scroll.name;
+      rarity = scroll.rarity;
+      category = 'consumable';
+    }
     (m[1] === '-' ? removed : gained).push({
       ...parsed,
-      name: match ? match.item.name : parsed.name, // canonical name so stacks merge
+      name,
       category,
-      rarity: match?.item.rarity,
+      rarity,
       unitCost: parsed.totalCost !== undefined ? parsed.totalCost / parsed.quantity : match?.item.cost,
     });
   }
@@ -317,20 +326,29 @@ export function importAlLog(csvText: string): AlImportResult {
   const gainedMagic: { key: string; name: string; id: string; remaining: number }[] = [];
 
   function gainMagicItem(row: RawMagicRow): GainedItem {
+    // The AL Log lists spell scrolls as MAGIC ITEM rows too — recognize them so they
+    // land in the same consumable stack as scrolls parsed from notes bullets.
+    const scroll = canonicalizeSpellScrollForImport(row.name, row.rarity);
+    const category: ItemCategory = scroll.isSpellScroll ? 'consumable' : 'magic_item';
     const item: GainedItem = {
-      id: newId(),
-      name: row.name,
-      category: 'magic_item',
-      rarity: row.rarity,
+      id: scroll.isSpellScroll
+        ? stackedItemId({ category, name: scroll.name, rarity: scroll.rarity })
+        : newId(),
+      name: scroll.name,
+      category,
+      rarity: scroll.rarity,
       quantity: 1,
-      description: row.notes,
+      description: scroll.isSpellScroll ? undefined : row.notes,
     };
-    gainedMagic.push({ key: normalizeKey(row.name), name: row.name, id: item.id, remaining: 1 });
+    gainedMagic.push({ key: normalizeKey(scroll.name), name: scroll.name, id: item.id, remaining: 1 });
     return item;
   }
 
   function loseMagicItem(row: RawMagicRow, logTitle: string): LostItem | null {
-    const key = normalizeKey(row.name);
+    // Canonicalize so a trade recorded under either spell-scroll spelling still
+    // matches the id an earlier gain registered.
+    const canonicalName = resolveSpellScroll(row.name)?.name ?? row.name;
+    const key = normalizeKey(canonicalName);
     for (let i = gainedMagic.length - 1; i >= 0; i--) {
       if (gainedMagic[i].key === key && gainedMagic[i].remaining > 0) {
         gainedMagic[i].remaining--;

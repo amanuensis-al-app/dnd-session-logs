@@ -8,6 +8,7 @@ import {
   stackedItemId,
 } from './types';
 import { CONSUMABLE_NAME_RE, lookupCatalog } from './importAlLog';
+import { canonicalizeSpellScrollForText } from './spells';
 
 /**
  * "Add Log from Text": turn a pasted session recap (typically the DM's Discord post)
@@ -54,19 +55,28 @@ function makeGain(input: {
   description?: string;
   minorProperty?: MinorProperty;
 }): GainedItem {
-  const name = input.name.trim();
-  const rarity = input.rarity;
-  const stacked = STACKED_CATEGORIES.includes(input.category);
+  let name = input.name.trim();
+  let category = input.category;
+  let rarity = input.rarity;
+  // Unify "Spell Scroll (X)" / "Spell Scroll of X" and fill in the spell-level rarity
+  // when the recap/chatbot didn't already give one.
+  const scroll = canonicalizeSpellScrollForText(name, rarity);
+  if (scroll.isSpellScroll) {
+    name = scroll.name;
+    rarity = scroll.rarity;
+    category = 'consumable';
+  }
+  const stacked = STACKED_CATEGORIES.includes(category);
   let description = input.description?.trim() || undefined;
   if (description && description.length > 400) description = `${description.slice(0, 400)}…`;
   return {
-    id: stacked ? stackedItemId({ category: input.category, name, rarity }) : newId(),
+    id: stacked ? stackedItemId({ category, name, rarity }) : newId(),
     name,
-    category: input.category,
+    category,
     rarity,
     quantity: Math.max(1, Math.round(input.quantity)),
     description: stacked ? undefined : description,
-    minorProperty: input.category === 'magic_item' ? input.minorProperty : undefined,
+    minorProperty: category === 'magic_item' ? input.minorProperty : undefined,
   };
 }
 
@@ -573,6 +583,7 @@ Use exactly this shape:
 
 Rules:
 - Potions, oils, elixirs and scrolls are "consumable". Magical weapons, armor and wondrous items are "magic_item". Ordinary gear is "equipment".
+- Spell scrolls: name them "Spell Scroll of <Spell Name>" (e.g. "Spell Scroll of Fireball"), not "Spell Scroll (Spell Name)".
 - List every item the party received; the player will remove the ones they didn't take.
 - Text between || bars is a Discord spoiler — read it normally.
 - If something is unclear, make your best guess: a person reviews everything afterwards.
