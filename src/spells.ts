@@ -597,6 +597,35 @@ export function rarityForSpellLevel(level: number): Rarity {
   return 'legendary';
 }
 
+/** 2024 DMG spell scroll market price by level, DOUBLED (owner house rule, 2026-07-18)
+ * — matches the catalog's pre-existing "Spell Scroll (Cantrip)"/"(Level 1)" placeholder
+ * prices (30/50 gp), which already used the same doubling. */
+const SPELL_SCROLL_COST_BY_LEVEL: Record<number, number> = {
+  0: 30,
+  1: 50,
+  2: 200,
+  3: 300,
+  4: 2000,
+  5: 3000,
+  6: 20000,
+  7: 25000,
+  8: 30000,
+  9: 100000,
+};
+
+export function costForSpellLevel(level: number): number {
+  return SPELL_SCROLL_COST_BY_LEVEL[level] ?? 0;
+}
+
+/** "Cantrip", "1st", "2nd", "3rd", "4th", … for display. */
+export function spellLevelLabel(level: number): string {
+  if (level === 0) return 'Cantrip';
+  const mod100 = level % 100;
+  const suffix =
+    mod100 >= 11 && mod100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][level % 10] ?? 'th';
+  return `${level}${suffix}`;
+}
+
 // "Spell Scroll of Ice Knife" or "Spell Scroll (Ice Knife)" (plural/case-insensitive).
 const SPELL_SCROLL_RE = /^spell\s*scrolls?\s*(?:of\s+(.+?)|\(\s*([^()]+?)\s*\))\s*$/i;
 

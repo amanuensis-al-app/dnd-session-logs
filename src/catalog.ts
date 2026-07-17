@@ -722,8 +722,6 @@ export const ITEM_CATALOG: Partial<Record<ItemCategory, CatalogItem[]>> = {
       { name: 'Scholar’s Pack', cost: 40 },
       { name: 'Shovel', cost: 2 },
       { name: 'Signal Whistle', cost: 0.05 },
-      { name: 'Spell Scroll (Cantrip)', cost: 30 },
-      { name: 'Spell Scroll (Level 1)', cost: 50 },
       { name: 'Spyglass', cost: 1000 },
       { name: 'String', cost: 0.1 },
       { name: 'Tent', cost: 2 },
@@ -773,6 +771,9 @@ export const ITEM_CATALOG: Partial<Record<ItemCategory, CatalogItem[]>> = {
   // magic item value): common 50, uncommon 200, rare 2,000, very rare 20,000,
   // legendary 100,000.
   consumable: [
+    // Picking this opens the spell picker (see LogForm) instead of filling in a
+    // rarity/cost directly — those come from the chosen spell's level.
+    ...section('Spell Scroll', [{ name: 'Spell Scroll', cost: 0 }]),
     ...section('Common', [
       { name: 'Potion of Climbing', cost: 50, rarity: 'common' },
       { name: 'Potion of Comprehension', cost: 50, rarity: 'common' },

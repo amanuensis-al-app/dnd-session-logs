@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type {
   Character,
   DerivedStats,
@@ -26,6 +26,8 @@ import {
 import { CREATION_BACKGROUNDS, CREATION_CLASSES, ITEM_CATALOG } from '../catalog';
 import type { CreationOption } from '../catalog';
 import { formatGp, sortLogs } from '../derive';
+import { costForSpellLevel, rarityForSpellLevel, type SpellDefinition } from '../spells';
+import { SpellScrollPicker } from './SpellScrollPicker';
 
 interface Props {
   character: Character;
@@ -66,6 +68,12 @@ function ComboInput({
   const [manual, setManual] = useState(
     () => options.length === 0 || (value !== '' && !options.includes(value)),
   );
+  // A value set from outside (e.g. the spell picker filling in "Spell Scroll of X")
+  // can land here after mount, once the dropdown is already showing — without this the
+  // <select> would just show blank instead of switching to an editable text field.
+  useEffect(() => {
+    if (!manual && value !== '' && !options.includes(value)) setManual(true);
+  }, [value, options, manual]);
 
   if (manual || options.length === 0) {
     return (
@@ -411,6 +419,20 @@ export function LogForm({
 
   function updateGain(key: string, patch: Partial<GainDraft>) {
     setGains((prev) => prev.map((g) => (g.key === key ? { ...g, ...patch } : g)));
+  }
+
+  // Gain row (by key) currently showing the spell picker, or null. Picking a spell sets
+  // rarity from its level, and (in a Purchase log) price from the doubled DMG cost table;
+  // closing without picking leaves the item name at plain "Spell Scroll".
+  const [spellPickerFor, setSpellPickerFor] = useState<string | null>(null);
+
+  function pickSpellScroll(key: string, spell: SpellDefinition) {
+    updateGain(key, {
+      name: `Spell Scroll of ${spell.name}`,
+      rarity: rarityForSpellLevel(spell.level),
+      ...(type === 'purchase' ? { cost: String(costForSpellLevel(spell.level)) } : {}),
+    });
+    setSpellPickerFor(null);
   }
 
   function updateLoss(key: string, patch: Partial<LossDraft>) {
@@ -1049,9 +1071,11 @@ export function LogForm({
                   optionLabel={
                     // Prices only matter when buying. The selected option keeps its
                     // plain name so the closed select shows "Flail", not "Flail — 10 gp".
+                    // "Spell Scroll" has no fixed price (it depends which spell gets
+                    // picked), so it's left bare either way.
                     type === 'purchase'
                       ? (name) => {
-                          if (name === g.name) return name;
+                          if (name === g.name || name === 'Spell Scroll') return name;
                           const entry = ITEM_CATALOG[g.category]?.find((c) => c.name === name);
                           return entry ? `${name} — ${formatGp(entry.cost)} gp` : name;
                         }
@@ -1059,6 +1083,13 @@ export function LogForm({
                   }
                   placeholder="item name *"
                   onChange={(name) => {
+                    // "Spell Scroll" opens the picker instead of filling anything in
+                    // directly — rarity/cost come from whichever spell gets chosen.
+                    if (g.category === 'consumable' && name === 'Spell Scroll') {
+                      updateGain(g.key, { name });
+                      setSpellPickerFor(g.key);
+                      return;
+                    }
                     const entry = ITEM_CATALOG[g.category]?.find((c) => c.name === name);
                     // Picking a catalog item fills in its rarity, and its price in a purchase.
                     updateGain(g.key, {
@@ -1215,6 +1246,13 @@ export function LogForm({
           Cancel
         </button>
       </div>
+
+      {spellPickerFor && (
+        <SpellScrollPicker
+          onPick={(spell) => pickSpellScroll(spellPickerFor, spell)}
+          onClose={() => setSpellPickerFor(null)}
+        />
+      )}
     </form>
   );
 }
