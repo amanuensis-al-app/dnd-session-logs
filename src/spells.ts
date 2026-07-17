@@ -597,9 +597,11 @@ export function rarityForSpellLevel(level: number): Rarity {
   return 'legendary';
 }
 
-/** 2024 DMG spell scroll market price by level, DOUBLED (owner house rule, 2026-07-18)
- * — matches the catalog's pre-existing "Spell Scroll (Cantrip)"/"(Level 1)" placeholder
- * prices (30/50 gp), which already used the same doubling. */
+/** 2024 DMG spell scroll market price by level. Owner house rule (2026-07-18,
+ * corrected 2026-07-18): Cantrip through 5th DOUBLE the DMG price; 6th and up use the
+ * DMG price as-is. The doubled Cantrip/1st prices (30/50 gp) match the catalog's
+ * pre-existing "Spell Scroll (Cantrip)"/"(Level 1)" placeholders, which this table's
+ * picker-driven flow replaced. */
 const SPELL_SCROLL_COST_BY_LEVEL: Record<number, number> = {
   0: 30,
   1: 50,
@@ -607,10 +609,10 @@ const SPELL_SCROLL_COST_BY_LEVEL: Record<number, number> = {
   3: 300,
   4: 2000,
   5: 3000,
-  6: 20000,
-  7: 25000,
-  8: 30000,
-  9: 100000,
+  6: 10000,
+  7: 12500,
+  8: 15000,
+  9: 50000,
 };
 
 export function costForSpellLevel(level: number): number {
