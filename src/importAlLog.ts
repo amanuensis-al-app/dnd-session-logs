@@ -33,8 +33,9 @@ export interface AlImportResult {
 
 // ---- CSV ----------------------------------------------------------------------
 
-/** Minimal RFC 4180 parser: quoted fields may contain commas, quotes ("") and newlines. */
-function parseCsv(text: string): string[][] {
+/** Minimal RFC 4180 parser: quoted fields may contain commas, quotes ("") and newlines.
+ * Shared with the personal log-sheet importer (importSheetLog.ts). */
+export function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let field = '';
@@ -99,7 +100,7 @@ function parseDateTime(value: string): { date: string; time?: string } | null {
   return dateOnly ? { date: dateOnly[1] } : null;
 }
 
-function parseRarity(value: string, warnings: string[], context: string): Rarity | undefined {
+export function parseRarity(value: string, warnings: string[], context: string): Rarity | undefined {
   const raw = value.trim().toLowerCase().replace(/_/g, ' ');
   if (!raw) return undefined;
   if ((RARITIES as readonly string[]).includes(raw)) return raw as Rarity;
@@ -110,7 +111,7 @@ function parseRarity(value: string, warnings: string[], context: string): Rarity
 // ---- Item-name matching against the catalog -------------------------------------
 
 /** Loose identity for name matching: case, spaces, punctuation and apostrophes ignored. */
-function normalizeKey(name: string): string {
+export function normalizeKey(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
@@ -185,7 +186,7 @@ function parseItemLine(body: string): ParsedItemLine | null {
   return { name: s, quantity, totalCost };
 }
 
-interface NotesItem extends ParsedItemLine {
+export interface NotesItem extends ParsedItemLine {
   category: ItemCategory;
   rarity?: Rarity;
   /** Per-unit GP from the bullet's own price, falling back to the catalog. */
@@ -203,8 +204,10 @@ interface NotesItem extends ParsedItemLine {
  *
  * `skipGoldNotes`: outside purchase logs, bullets ending in a bare gold amount
  * ("* Fighter 155GP") are gold-source notes, not items — leave them as prose.
+ *
+ * Also used by the personal log-sheet importer (importSheetLog.ts).
  */
-function parseNotesItems(
+export function parseNotesItems(
   notes: string,
   defaultCategory: ItemCategory,
   skipGoldNotes = false

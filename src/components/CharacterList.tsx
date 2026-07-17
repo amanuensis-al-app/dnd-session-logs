@@ -3,6 +3,7 @@ import type { Character, DerivedStats, LogEntry, LogType } from '../types';
 import { LOG_TYPE_LABELS, newId } from '../types';
 import { deriveCharacter, formatGp } from '../derive';
 import { importAlLog, type AlImportResult } from '../importAlLog';
+import { importSheetLog } from '../importSheetLog';
 import { Modal } from './Modal';
 
 interface Props {
@@ -18,8 +19,9 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
   const [name, setName] = useState('');
   const [species, setSpecies] = useState('');
   const [charClass, setCharClass] = useState('');
-  const [importPreview, setImportPreview] = useState<AlImportResult | null>(null);
+  const [importPreview, setImportPreview] = useState<{ title: string; result: AlImportResult } | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const importKindRef = useRef<'al' | 'sheet'>('al');
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,16 +41,22 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
 
   async function handleImportFile(file: File) {
     try {
-      setImportPreview(importAlLog(await file.text()));
+      const text = await file.text();
+      setImportPreview(
+        importKindRef.current === 'al'
+          ? { title: 'Import from Adventurers League Log', result: importAlLog(text) }
+          : { title: 'Import from Log Sheet', result: importSheetLog(text, file.name) }
+      );
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Could not read that file.');
     }
   }
 
-  const preview = importPreview && deriveCharacter(importPreview.character, importPreview.logs);
+  const preview =
+    importPreview && deriveCharacter(importPreview.result.character, importPreview.result.logs);
   const typeCounts =
     importPreview &&
-    importPreview.logs.reduce((map, log) => {
+    importPreview.result.logs.reduce((map, log) => {
       map.set(log.type, (map.get(log.type) ?? 0) + 1);
       return map;
     }, new Map<LogType, number>());
@@ -60,10 +68,23 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
         <div className="page-heading-actions">
           <button
             className="btn btn-ghost"
-            onClick={() => importInputRef.current?.click()}
+            onClick={() => {
+              importKindRef.current = 'al';
+              importInputRef.current?.click();
+            }}
             title="Import a character from an adventurersleaguelog.com CSV export"
           >
             Import AL Log
+          </button>
+          <button
+            className="btn btn-ghost"
+            onClick={() => {
+              importKindRef.current = 'sheet';
+              importInputRef.current?.click();
+            }}
+            title="Import a character from a personal log-sheet CSV (Adventure/Trade/Purchase columns)"
+          >
+            Import Log Sheet
           </button>
           <button className="btn btn-primary" onClick={() => setCreating((v) => !v)}>
             {creating ? 'Cancel' : '+ New Character'}
@@ -153,16 +174,16 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
       )}
 
       {importPreview && preview && typeCounts && (
-        <Modal title="Import from Adventurers League Log" onClose={() => setImportPreview(null)}>
+        <Modal title={importPreview.title} onClose={() => setImportPreview(null)}>
           <p>
-            <strong>{importPreview.character.name}</strong>
-            {[importPreview.character.species, importPreview.character.class]
+            <strong>{importPreview.result.character.name}</strong>
+            {[importPreview.result.character.species, importPreview.result.character.class]
               .filter(Boolean)
               .map((s) => ` · ${s}`)
               .join('')}
           </p>
           <p>
-            {importPreview.logs.length} log(s):{' '}
+            {importPreview.result.logs.length} log(s):{' '}
             {[...typeCounts.entries()]
               .map(([type, count]) => `${count} ${LOG_TYPE_LABELS[type]}`)
               .join(', ') || 'none'}
@@ -171,13 +192,13 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
             Result: <strong>Lv {preview.level}</strong> · {formatGp(preview.gp)} gp ·{' '}
             {preview.downtimeDays} downtime · {preview.inventory.length} item(s)
           </p>
-          {importPreview.warnings.length > 0 && (
+          {importPreview.result.warnings.length > 0 && (
             <>
               <p className="muted">
                 Best-effort notes — review these after importing (each log stays editable):
               </p>
               <ul className="import-warnings">
-                {importPreview.warnings.map((w, i) => (
+                {importPreview.result.warnings.map((w, i) => (
                   <li key={i}>{w}</li>
                 ))}
               </ul>
@@ -190,7 +211,7 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
             <button
               className="btn btn-primary"
               onClick={() => {
-                onImport(importPreview.character, importPreview.logs);
+                onImport(importPreview.result.character, importPreview.result.logs);
                 setImportPreview(null);
               }}
             >
