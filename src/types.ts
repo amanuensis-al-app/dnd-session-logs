@@ -175,6 +175,10 @@ export interface Character {
   species: string;
   class: string;
   notes?: string;
+  /** Square portrait as a JPEG data URL (base64), max 256×256 — set via the avatar
+   * editor. Client-side only, never uploaded anywhere; travels in the backup JSON
+   * like every other field. */
+  icon?: string;
   createdAt: number;
 }
 

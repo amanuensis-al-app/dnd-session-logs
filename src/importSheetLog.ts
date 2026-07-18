@@ -85,8 +85,8 @@ function splitMinorProperty(name: string): { name: string; minorProperty?: Minor
 
 /** Identity with every trailing parenthetical stripped, for fuzzy loss matching:
  * "Balagos' Belt (Dragonhide Belt +3)" and "Balagos' Belt (+3 Dragonhide Belt)"
- * both key as "balagosbelt". */
-function baseNameKey(name: string): string {
+ * both key as "balagosbelt". Shared with the chatbot bridge (importSheetChatbot.ts). */
+export function baseNameKey(name: string): string {
   let s = name.trim();
   for (;;) {
     const m = s.match(/^(.*\S)\s*\([^()]*\)$/);
@@ -97,8 +97,9 @@ function baseNameKey(name: string): string {
 }
 
 /** The sheet spells some consumables differently from the catalog ("Potion of
- * Superior Healing"); canonicalize so stacks merge with app-entered logs. */
-function canonicalConsumable(name: string, rarity?: Rarity): { name: string; rarity?: Rarity } {
+ * Superior Healing"); canonicalize so stacks merge with app-entered logs.
+ * Shared with the chatbot bridge (importSheetChatbot.ts). */
+export function canonicalConsumable(name: string, rarity?: Rarity): { name: string; rarity?: Rarity } {
   const match = lookupCatalog(name);
   if (match && match.category === 'consumable') {
     return { name: match.item.name, rarity: match.item.rarity ?? rarity };
@@ -114,7 +115,7 @@ function transformDashPrices(notes: string): string {
     .join('\n');
 }
 
-function characterNameFromFile(fileName: string | undefined, warnings: string[]): string {
+export function characterNameFromFile(fileName: string | undefined, warnings: string[]): string {
   const base = (fileName ?? '').replace(/\.[^.]+$/, '').trim();
   // "DND Log Sheet - Melfyn Goodfellow - Logs" → the middle segment(s).
   const parts = base.split(/\s+-\s+/);

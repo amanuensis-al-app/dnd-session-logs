@@ -5,6 +5,8 @@ import { Inventory } from './Inventory';
 import { LogHistory } from './LogHistory';
 import { LogForm } from './LogForm';
 import { AddLogFromText } from './AddLogFromText';
+import { CharacterAvatar } from './CharacterAvatar';
+import { AvatarEditor } from './AvatarEditor';
 
 /** 'new' = adding, LogEntry = editing that log, prefill = new log parsed from
  * pasted text (with review warnings), null = form closed. */
@@ -35,6 +37,7 @@ export function CharacterSheet({
   const [logDraft, setLogDraft] = useState<LogDraftState>(null);
   const [showTextImport, setShowTextImport] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [editingIcon, setEditingIcon] = useState(false);
   const [name, setName] = useState(character.name);
   const [species, setSpecies] = useState(character.species);
   const [charClass, setCharClass] = useState(character.class);
@@ -62,6 +65,26 @@ export function CharacterSheet({
       <div className="card sheet-header">
         {editing ? (
           <form onSubmit={saveEdit}>
+            <div className="sheet-avatar-edit">
+              <button
+                type="button"
+                className="sheet-avatar-edit-button"
+                onClick={() => setEditingIcon(true)}
+                title="Change character icon"
+              >
+                <CharacterAvatar character={character} size={72} />
+                <span className="sheet-avatar-edit-overlay">✎</span>
+              </button>
+              {character.icon && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-small"
+                  onClick={() => onSaveCharacter({ ...character, icon: undefined })}
+                >
+                  Remove Icon
+                </button>
+              )}
+            </div>
             <div className="form-grid">
               <label>
                 Name *
@@ -103,10 +126,13 @@ export function CharacterSheet({
         ) : (
           <>
             <div className="sheet-header-top">
-              <div>
-                <h1>{character.name}</h1>
-                <div className="muted">
-                  {[character.species, character.class].filter(Boolean).join(' · ') || '—'}
+              <div className="sheet-header-identity">
+                <CharacterAvatar character={character} size={72} />
+                <div>
+                  <h1>{character.name}</h1>
+                  <div className="muted">
+                    {[character.species, character.class].filter(Boolean).join(' · ') || '—'}
+                  </div>
                 </div>
               </div>
               <button className="btn btn-ghost" onClick={() => setEditing(true)}>
@@ -134,6 +160,16 @@ export function CharacterSheet({
           </>
         )}
       </div>
+
+      {editingIcon && (
+        <AvatarEditor
+          onSave={(icon) => {
+            onSaveCharacter({ ...character, icon });
+            setEditingIcon(false);
+          }}
+          onClose={() => setEditingIcon(false)}
+        />
+      )}
 
       <div className="sheet-toolbar">
         <div className="tabs">

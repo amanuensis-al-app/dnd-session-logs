@@ -276,6 +276,24 @@ textarea:focus {
   margin-top: 0.6rem;
 }
 
+/* ---- Avatar ---- */
+
+.avatar {
+  flex: none;
+  border-radius: var(--radius);
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
 /* ---- Character list ---- */
 
 .character-grid {
@@ -296,6 +314,13 @@ textarea:focus {
   border-color: var(--accent);
 }
 
+.character-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.6rem;
+}
+
 .character-card-name {
   font-size: 1.1rem;
   font-weight: 700;
@@ -303,7 +328,6 @@ textarea:focus {
 
 .character-card-sub {
   font-size: 0.85rem;
-  margin-bottom: 0.6rem;
 }
 
 .character-card-stats {
@@ -333,6 +357,86 @@ textarea:focus {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 0.8rem;
+}
+
+.sheet-header-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.sheet-avatar-edit {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 0.8rem;
+}
+
+.sheet-avatar-edit-button {
+  position: relative;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: var(--radius);
+}
+
+.sheet-avatar-edit-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  background: rgba(10, 7, 18, 0.55);
+  color: var(--text);
+  font-size: 1.3rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.sheet-avatar-edit-button:hover .sheet-avatar-edit-overlay,
+.sheet-avatar-edit-button:focus-visible .sheet-avatar-edit-overlay {
+  opacity: 1;
+}
+
+/* ---- Avatar crop editor ---- */
+
+.avatar-crop-viewport {
+  position: relative;
+  overflow: hidden;
+  margin: 0.6rem 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-inset);
+  cursor: grab;
+  touch-action: none;
+}
+
+.avatar-crop-viewport:active {
+  cursor: grabbing;
+}
+
+.avatar-crop-viewport img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.avatar-zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.avatar-zoom-row input[type='range'] {
+  flex: 1;
+  padding: 0;
 }
 
 .stat-row {

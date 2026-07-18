@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Character, DerivedStats, LogEntry, LogType } from '../types';
 import { LOG_TYPE_LABELS, newId } from '../types';
 import { deriveCharacter, formatGp } from '../derive';
 import { importAlLog, type AlImportResult } from '../importAlLog';
-import { importSheetLog } from '../importSheetLog';
 import { Modal } from './Modal';
+import { CharacterAvatar } from './CharacterAvatar';
+import { ImportLogSheet } from './ImportLogSheet';
 
 interface Props {
   characters: Character[];
@@ -20,8 +21,28 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
   const [species, setSpecies] = useState('');
   const [charClass, setCharClass] = useState('');
   const [importPreview, setImportPreview] = useState<{ title: string; result: AlImportResult } | null>(null);
+  /** Log-sheet file waiting in the engine-chooser modal (Quick Import vs AI chatbot). */
+  const [sheetImport, setSheetImport] = useState<{ csvText: string; fileName: string } | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const importKindRef = useRef<'al' | 'sheet'>('al');
+  // "Import Log Sheet" reads the owner's own private log-sheet format — not something
+  // a random AL Tracker user would have. Hidden behind typing R R Q anywhere on this
+  // screen (not while typing in a field) so it doesn't confuse everyone else.
+  const [logSheetUnlocked, setLogSheetUnlocked] = useState(false);
+
+  useEffect(() => {
+    const buffer: string[] = [];
+    function onKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target && /^(input|textarea|select)$/i.test(target.tagName)) return;
+      if (e.key.length !== 1) return;
+      buffer.push(e.key.toLowerCase());
+      if (buffer.length > 3) buffer.shift();
+      if (buffer.join('') === 'rrq') setLogSheetUnlocked(true);
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,11 +63,12 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
   async function handleImportFile(file: File) {
     try {
       const text = await file.text();
-      setImportPreview(
-        importKindRef.current === 'al'
-          ? { title: 'Import from Adventurers League Log', result: importAlLog(text) }
-          : { title: 'Import from Log Sheet', result: importSheetLog(text, file.name) }
-      );
+      if (importKindRef.current === 'al') {
+        setImportPreview({ title: 'Import from Adventurers League Log', result: importAlLog(text) });
+      } else {
+        // The log sheet gets an engine choice first (offline parser vs AI chatbot).
+        setSheetImport({ csvText: text, fileName: file.name });
+      }
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Could not read that file.');
     }
@@ -76,16 +98,18 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
           >
             Import AL Log
           </button>
-          <button
-            className="btn btn-ghost"
-            onClick={() => {
-              importKindRef.current = 'sheet';
-              importInputRef.current?.click();
-            }}
-            title="Import a character from a personal log-sheet CSV (Adventure/Trade/Purchase columns)"
-          >
-            Import Log Sheet
-          </button>
+          {logSheetUnlocked && (
+            <button
+              className="btn btn-ghost"
+              onClick={() => {
+                importKindRef.current = 'sheet';
+                importInputRef.current?.click();
+              }}
+              title="Import a character from a personal log-sheet CSV (Adventure/Trade/Purchase columns)"
+            >
+              Import Log Sheet
+            </button>
+          )}
           <button className="btn btn-primary" onClick={() => setCreating((v) => !v)}>
             {creating ? 'Cancel' : '+ New Character'}
           </button>
@@ -155,9 +179,14 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
             const d = derivedByCharacter.get(c.id)!;
             return (
               <button key={c.id} className="card character-card" onClick={() => onOpen(c.id)}>
-                <div className="character-card-name">{c.name}</div>
-                <div className="character-card-sub muted">
-                  {[c.species, c.class].filter(Boolean).join(' · ') || '—'}
+                <div className="character-card-header">
+                  <CharacterAvatar character={c} size={48} />
+                  <div>
+                    <div className="character-card-name">{c.name}</div>
+                    <div className="character-card-sub muted">
+                      {[c.species, c.class].filter(Boolean).join(' · ') || '—'}
+                    </div>
+                  </div>
                 </div>
                 <div className="character-card-stats">
                   <span>
@@ -171,6 +200,18 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
             );
           })}
         </div>
+      )}
+
+      {sheetImport && (
+        <ImportLogSheet
+          csvText={sheetImport.csvText}
+          fileName={sheetImport.fileName}
+          onClose={() => setSheetImport(null)}
+          onResult={(result) => {
+            setSheetImport(null);
+            setImportPreview({ title: 'Import from Log Sheet', result });
+          }}
+        />
       )}
 
       {importPreview && preview && typeCounts && (
