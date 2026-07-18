@@ -46,6 +46,17 @@ export type Rarity = (typeof RARITIES)[number];
 /** Categories that carry a rarity. */
 export const RARITY_CATEGORIES: ItemCategory[] = ['magic_item', 'consumable'];
 
+/** Categories the "equipped" mark applies to. Plain Equipment (mundane gear) and
+ * Story Awards aren't "equippable" in this tracker's sense — owner decision
+ * 2026-07-18, deliberately excluding the category literally named "Equipment". */
+export const EQUIPPABLE_CATEGORIES: ItemCategory[] = [
+  'magic_item',
+  'consumable',
+  'blessing',
+  'charm',
+  'boon',
+];
+
 /**
  * 2024 DMG minor properties: a magic item may have up to one. Purely descriptive
  * flavor text (no mechanical effect the tracker needs to act on), stored as a
@@ -169,6 +180,25 @@ export interface LogEntry {
 
 // ---- Characters ---------------------------------------------------------------
 
+/**
+ * Per-item equip state, keyed by GainedItem id (the stack id for stacked
+ * categories). Present = equipped, absent = not — equipped items sort first in the
+ * inventory and the log form's loss picker, and make up the Prep tab. Pure UI
+ * priority, no rules meaning. (Reads are truthiness checks on purpose: the value
+ * was 'bookmarked' for a few hours on 2026-07-18, and any such dev data now simply
+ * reads as equipped.)
+ */
+export type ItemMark = 'equipped';
+
+/**
+ * Attunement state for an equipped magic item (`category === 'magic_item'` only —
+ * meaningless elsewhere). Absent = not attuned, the default. A character can be
+ * attuned to at most 3 magic items at once (shared cap across every rarity, see
+ * `ATTUNEMENT_CAP` in `tiers.ts`) — this type is just the stored shape, set from
+ * Prep's attunement dropdown.
+ */
+export type AttunementState = 'attuned' | 'not-required';
+
 export interface Character {
   id: string;
   name: string;
@@ -179,6 +209,12 @@ export interface Character {
    * editor. Client-side only, never uploaded anywhere; travels in the backup JSON
    * like every other field. */
   icon?: string;
+  /** Equipped item ids (see ItemMark). Travels in the backup JSON. */
+  itemMarks?: Record<string, ItemMark>;
+  /** Attunement state per magic item id (see AttunementState). Travels in the
+   * backup JSON; harmless if it dangles on an item that's since been unequipped or
+   * lost, same philosophy as itemMarks. */
+  attunement?: Record<string, AttunementState>;
   createdAt: number;
 }
 

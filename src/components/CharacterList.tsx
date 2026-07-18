@@ -194,7 +194,9 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
                   </span>
                   <span>{formatGp(d.gp)} gp</span>
                   <span>{d.downtimeDays} downtime</span>
-                  <span>{d.inventory.length} items</span>
+                  <span>
+                    {d.inventory.filter((i) => i.category === 'magic_item').length} magic items
+                  </span>
                 </div>
               </button>
             );

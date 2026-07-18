@@ -12,6 +12,7 @@ import type {
 } from '../types';
 import {
   CATEGORY_LABELS_SINGULAR,
+  EQUIPPABLE_CATEGORIES,
   ITEM_CATEGORIES,
   LOG_TYPES,
   LOG_TYPE_LABELS,
@@ -169,6 +170,9 @@ interface GainDraft {
 
 interface LossDraft {
   key: string;
+  /** Draft-only filter for the item dropdown (like the gain side's category pick).
+   * Never saved — the picked item's own category is authoritative. */
+  category: ItemCategory;
   itemId: string;
   quantity: string;
   reason: LossReason;
@@ -189,8 +193,8 @@ function emptyGain(category: ItemCategory = 'magic_item'): GainDraft {
   };
 }
 
-function emptyLoss(reason: LossReason = 'used'): LossDraft {
-  return { key: newId(), itemId: '', quantity: '1', reason, salePrice: '' };
+function emptyLoss(reason: LossReason = 'used', category: ItemCategory = 'consumable'): LossDraft {
+  return { key: newId(), category, itemId: '', quantity: '1', reason, salePrice: '' };
 }
 
 function num(value: string): number {
@@ -260,6 +264,8 @@ export function LogForm({
   const [losses, setLosses] = useState<LossDraft[]>(() => {
     const drafts = (initial?.itemsLost ?? []).map((lost, i) => ({
       key: `${lost.itemId}:${i}`,
+      // The lost item's own category preselects the dropdown filter.
+      category: derived.allItems.find((i) => i.id === lost.itemId)?.category ?? 'consumable',
       itemId: lost.itemId,
       quantity: String(lost.quantity),
       reason: lost.reason,
@@ -317,6 +323,25 @@ export function LogForm({
     () => ownedItems.filter((i) => i.category === 'equipment'),
     [ownedItems],
   );
+  // Loss rows filter items by category — only offer categories the character owns.
+  const lossCategories = useMemo(
+    () => ITEM_CATEGORIES.filter((c) => ownedItems.some((i) => i.category === c)),
+    [ownedItems],
+  );
+  // Loss options sorted like the Inventory tab: equipped first, then rarest first,
+  // then name. (ownedItems all have remaining > 0, so the Inventory sort's
+  // negative-quantities-last rule doesn't apply here.)
+  const lossItemOptions = useMemo(() => {
+    const markRank = (item: { id: string; category: ItemCategory }) =>
+      EQUIPPABLE_CATEGORIES.includes(item.category) && character.itemMarks?.[item.id] ? 0 : 1;
+    const rarityRank = (r?: Rarity) => (r ? RARITIES.indexOf(r) : -1);
+    return [...ownedItems].sort(
+      (a, b) =>
+        markRank(a) - markRank(b) ||
+        rarityRank(b.rarity) - rarityRank(a.rarity) ||
+        a.name.localeCompare(b.name),
+    );
+  }, [ownedItems, character.itemMarks]);
 
   // What each (stacked) item was last bought for, per unit — sell prices prefill at
   // half of this, falling back to half the catalog list price, else 0.
@@ -1182,18 +1207,35 @@ export function LogForm({
           {losses.map((l) => (
             <div key={l.key} className="item-row">
               <select
+                value={l.category}
+                onChange={(e) =>
+                  // Re-picking the type clears the item — it belongs to another category.
+                  updateLoss(l.key, { category: e.target.value as ItemCategory, itemId: '' })
+                }
+                disabled={lossCategories.length === 1}
+                title="Filter by item type"
+              >
+                {lossCategories.map((c) => (
+                  <option key={c} value={c}>
+                    {CATEGORY_LABELS_SINGULAR[c]}
+                  </option>
+                ))}
+              </select>
+              <select
                 className="item-row-name"
                 value={l.itemId}
                 onChange={(e) => updateLoss(l.key, { itemId: e.target.value })}
               >
                 <option value="">— pick from inventory —</option>
-                {ownedItems.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.name} ({CATEGORY_LABELS_SINGULAR[i.category]}
-                    {i.remaining > 1 ? `, ×${i.remaining}` : ''})
-                    {minorPropertySuffix(i)}
-                  </option>
-                ))}
+                {lossItemOptions
+                  .filter((i) => i.category === l.category)
+                  .map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.name}
+                      {i.remaining > 1 ? ` (×${i.remaining})` : ''}
+                      {minorPropertySuffix(i)}
+                    </option>
+                  ))}
               </select>
               <input
                 className="item-row-qty"
@@ -1225,7 +1267,9 @@ export function LogForm({
           <button
             type="button"
             className="btn btn-ghost"
-            onClick={() => setLosses((prev) => [...prev, emptyLoss()])}
+            onClick={() =>
+              setLosses((prev) => [...prev, emptyLoss('used', lossCategories[0] ?? 'consumable')])
+            }
             disabled={ownedItems.length === 0}
           >
             + Add loss

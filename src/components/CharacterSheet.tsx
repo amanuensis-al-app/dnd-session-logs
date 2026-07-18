@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import type { Character, DerivedStats, LogEntry } from '../types';
+import type { AttunementState, Character, DerivedStats, LogEntry } from '../types';
 import { formatGp, knownValues, logsForCharacter } from '../derive';
 import { Inventory } from './Inventory';
+import { Prep } from './Prep';
 import { LogHistory } from './LogHistory';
 import { LogForm } from './LogForm';
 import { AddLogFromText } from './AddLogFromText';
@@ -33,7 +34,7 @@ export function CharacterSheet({
   onDeleteLog,
   onBack,
 }: Props) {
-  const [tab, setTab] = useState<'inventory' | 'logs'>('inventory');
+  const [tab, setTab] = useState<'inventory' | 'prep' | 'logs'>('inventory');
   const [logDraft, setLogDraft] = useState<LogDraftState>(null);
   const [showTextImport, setShowTextImport] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -54,6 +55,23 @@ export function CharacterSheet({
       class: charClass.trim(),
     });
     setEditing(false);
+  }
+
+  /** Equip toggle: present in itemMarks = equipped, absent = not. */
+  function toggleItemMark(itemId: string) {
+    const itemMarks = { ...character.itemMarks };
+    if (itemMarks[itemId]) delete itemMarks[itemId];
+    else itemMarks[itemId] = 'equipped';
+    onSaveCharacter({ ...character, itemMarks });
+  }
+
+  /** Sets (or clears, if undefined) a magic item's attunement state — Prep's
+   * dropdown picks the value directly, this just persists it. */
+  function setItemAttunement(itemId: string, state: AttunementState | undefined) {
+    const attunement = { ...character.attunement };
+    if (state) attunement[itemId] = state;
+    else delete attunement[itemId];
+    onSaveCharacter({ ...character, attunement });
   }
 
   return (
@@ -153,8 +171,10 @@ export function CharacterSheet({
                 <div className="stat-label">Downtime Days</div>
               </div>
               <div className="stat">
-                <div className="stat-value">{derived.inventory.length}</div>
-                <div className="stat-label">Items Owned</div>
+                <div className="stat-value">
+                  {derived.inventory.filter((i) => i.category === 'magic_item').length}
+                </div>
+                <div className="stat-label">Magic Items Owned</div>
               </div>
             </div>
           </>
@@ -178,6 +198,9 @@ export function CharacterSheet({
             onClick={() => setTab('inventory')}
           >
             Inventory
+          </button>
+          <button className={tab === 'prep' ? 'tab active' : 'tab'} onClick={() => setTab('prep')}>
+            Prep
           </button>
           <button className={tab === 'logs' ? 'tab active' : 'tab'} onClick={() => setTab('logs')}>
             Logs ({characterLogs.length})
@@ -263,7 +286,15 @@ export function CharacterSheet({
             )}
 
             {tab === 'inventory' && (
-              <Inventory character={character} derived={derived} onSaveLog={onSaveLog} />
+              <Inventory character={character} derived={derived} onToggleMark={toggleItemMark} />
+            )}
+            {tab === 'prep' && (
+              <Prep
+                character={character}
+                derived={derived}
+                onToggleMark={toggleItemMark}
+                onSetAttunement={setItemAttunement}
+              />
             )}
             {/* Always mounted (hidden off the Logs tab) so an in-place edit form's
                draft survives tab switches, same as the add form above. */}

@@ -1,35 +1,20 @@
-import type { Character, DerivedStats, InventoryItem, ItemCategory, LogEntry, Rarity } from '../types';
-import { CATEGORY_LABELS, ITEM_CATEGORIES, RARITIES, STACKED_CATEGORIES, newId } from '../types';
+import type { Character, DerivedStats, InventoryItem, ItemCategory, Rarity } from '../types';
+import {
+  CATEGORY_LABELS,
+  EQUIPPABLE_CATEGORIES,
+  ITEM_CATEGORIES,
+  RARITIES,
+  STACKED_CATEGORIES,
+} from '../types';
 
 interface Props {
   character: Character;
   derived: DerivedStats;
-  onSaveLog: (log: LogEntry) => void;
+  /** Toggles an item's equipped mark on/off. */
+  onToggleMark: (itemId: string) => void;
 }
 
-/** Categories where a one-click "use up" action makes sense. */
-const USABLE: ItemCategory[] = ['consumable', 'charm', 'story_award'];
-
-export function Inventory({ character, derived, onSaveLog }: Props) {
-  function useItem(item: InventoryItem) {
-    if (!confirm(`Use 1 × ${item.name}? A Free Log recording the use will be added.`)) return;
-    onSaveLog({
-      id: newId(),
-      characterId: character.id,
-      type: 'free',
-      date: new Date().toISOString().slice(0, 10),
-      title: `Used ${item.name}`,
-      gpGained: 0,
-      gpLost: 0,
-      downtimeGained: 0,
-      downtimeSpent: 0,
-      levelGained: 0,
-      itemsGained: [],
-      itemsLost: [{ itemId: item.id, quantity: 1, reason: 'used' }],
-      createdAt: Date.now(),
-    });
-  }
-
+export function Inventory({ character, derived, onToggleMark }: Props) {
   // remaining < 0 means more was lost/used than ever gained — an invalid log somewhere.
   // Show those with a warning instead of hiding them, so the user can find and fix it.
   const visibleItems = derived.allItems.filter((i) => i.remaining !== 0);
@@ -40,11 +25,16 @@ export function Inventory({ character, derived, onSaveLog }: Props) {
     list.push(item);
     byCategory.set(item.category, list);
   }
-  // Within a section: valid items before negative ones, then rarest first, then name.
+  // Within a section: equipped first, then valid items before negative ones,
+  // then rarest first, then name. Equipment/Story Awards can't be equipped (see
+  // EQUIPPABLE_CATEGORIES) so a stray mark on one is never ranked first.
+  const markRank = (item: InventoryItem) =>
+    EQUIPPABLE_CATEGORIES.includes(item.category) && character.itemMarks?.[item.id] ? 0 : 1;
   const rarityRank = (r?: Rarity) => (r ? RARITIES.indexOf(r) : -1);
   for (const list of byCategory.values()) {
     list.sort(
       (a, b) =>
+        markRank(a) - markRank(b) ||
         (a.remaining < 0 ? 1 : 0) - (b.remaining < 0 ? 1 : 0) ||
         rarityRank(b.rarity) - rarityRank(a.rarity) ||
         a.name.localeCompare(b.name),
@@ -71,40 +61,48 @@ export function Inventory({ character, derived, onSaveLog }: Props) {
               {CATEGORY_LABELS[category]} <span className="muted">({items.length})</span>
             </h2>
             <ul className="inventory-items">
-              {items.map((item) => (
-                <li key={item.id} className="inventory-item">
-                  <div className="inventory-item-main">
-                    <span className="inventory-item-name">
-                      {item.name}
-                      {item.quantity > 1 || item.remaining !== item.quantity ? (
-                        <span className={item.remaining < 0 ? 'delta-loss' : 'muted'}>
-                          {' '}
-                          ×{item.remaining}
-                        </span>
-                      ) : null}
-                    </span>
-                    {item.rarity && <span className={`rarity rarity-${item.rarity.replace(' ', '-')}`}>{item.rarity}</span>}
-                    {USABLE.includes(category) && item.remaining > 0 && (
-                      <button className="chip" onClick={() => useItem(item)}>
-                        Use
-                      </button>
-                    )}
-                  </div>
-                  {item.remaining < 0 && (
-                    <div className="warning inventory-item-warning">
-                      ⚠ Negative quantity: {-item.remaining} more lost/used than ever gained.
-                      There is an invalid log — check this item's gains and losses.
+              {items.map((item) => {
+                const equippable = EQUIPPABLE_CATEGORIES.includes(item.category);
+                const marked = equippable && !!character.itemMarks?.[item.id];
+                return (
+                  <li key={item.id} className="inventory-item">
+                    <div className="inventory-item-main">
+                      <span className="inventory-item-name">
+                        {item.name}
+                        {item.quantity > 1 || item.remaining !== item.quantity ? (
+                          <span className={item.remaining < 0 ? 'delta-loss' : 'muted'}>
+                            {' '}
+                            ×{item.remaining}
+                          </span>
+                        ) : null}
+                      </span>
+                      {item.rarity && <span className={`rarity rarity-${item.rarity.replace(' ', '-')}`}>{item.rarity}</span>}
+                      {item.remaining > 0 && equippable && (
+                        <button
+                          className={`equip-toggle${marked ? ' mark-equipped' : ''}`}
+                          title={marked ? 'Equipped — click to unequip' : 'Mark as equipped'}
+                          onClick={() => onToggleMark(item.id)}
+                        >
+                          ⚔️
+                        </button>
+                      )}
                     </div>
-                  )}
-                  {item.description && <div className="inventory-item-desc muted">{item.description}</div>}
-                  {item.minorProperty && (
-                    <div className="inventory-item-desc muted">Minor property: {item.minorProperty}</div>
-                  )}
-                  {!STACKED_CATEGORIES.includes(category) && (
-                    <div className="inventory-item-meta muted">Acquired {item.acquiredDate}</div>
-                  )}
-                </li>
-              ))}
+                    {item.remaining < 0 && (
+                      <div className="warning inventory-item-warning">
+                        ⚠ Negative quantity: {-item.remaining} more lost/used than ever gained.
+                        There is an invalid log — check this item's gains and losses.
+                      </div>
+                    )}
+                    {item.description && <div className="inventory-item-desc muted">{item.description}</div>}
+                    {item.minorProperty && (
+                      <div className="inventory-item-desc muted">Minor property: {item.minorProperty}</div>
+                    )}
+                    {!STACKED_CATEGORIES.includes(category) && (
+                      <div className="inventory-item-meta muted">Acquired {item.acquiredDate}</div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </section>
         );

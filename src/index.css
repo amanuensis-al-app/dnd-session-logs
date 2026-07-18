@@ -85,7 +85,7 @@ h2 {
   gap: 0.4rem;
 }
 
-/* ---- Buttons, chips, badges ---- */
+/* ---- Buttons, badges ---- */
 
 .btn {
   font-family: inherit;
@@ -122,29 +122,6 @@ h2 {
 .btn-small {
   padding: 0.15rem 0.5rem;
   font-size: 0.8rem;
-}
-
-.chip {
-  font-family: inherit;
-  font-size: 0.75rem;
-  padding: 0.1rem 0.55rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.chip:hover {
-  border-color: var(--accent);
-  color: var(--accent-strong);
-}
-
-.chip-active {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: #1c1410;
-  font-weight: 600;
 }
 
 .badge {
@@ -544,6 +521,51 @@ textarea:focus {
   font-size: 0.82rem;
 }
 
+/* ---- Prep tab ---- */
+
+.prep-tier {
+  margin: -0.2rem 0 0.2rem;
+  font-size: 0.9rem;
+}
+
+.prep-over-limit {
+  margin: 0.4rem 0;
+}
+
+.prep-slot-empty {
+  display: flex;
+}
+
+.prep-slot-empty select {
+  width: 100%;
+  border-style: dashed;
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.attune-select {
+  font-family: inherit;
+  font-size: 0.78rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-inset);
+  color: var(--text-muted);
+}
+
+.attune-select.attune-attuned {
+  border-color: var(--accent);
+  background: rgba(176, 141, 87, 0.15);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.attune-select.attune-not-required {
+  color: var(--text-muted);
+  font-style: italic;
+  opacity: 0.7;
+}
+
 .rarity {
   font-size: 0.75rem;
   text-transform: capitalize;
@@ -558,6 +580,45 @@ textarea:focus {
 .rarity-very-rare { color: #b89aeb; }
 .rarity-legendary { color: #eec97b; }
 .rarity-artifact { color: #e08a84; }
+
+/* Same ⚔️ glyph in both states — the glyph itself is faded (opacity) when unequipped
+   and full-strength when equipped. Hover carries a SEPARATE signal about what the
+   CLICK will do, via a tinted background: accent-colored ("this will equip it") for
+   an off toggle, danger-colored ("this will unequip it") for an equipped one. Kept
+   clearly apart from both resting states so a click's effect is never ambiguous. */
+.equip-toggle {
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  opacity: 0.4;
+  cursor: pointer;
+}
+
+.equip-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  background: rgba(176, 141, 87, 0.18);
+  opacity: 0.75;
+}
+
+.equip-toggle.mark-equipped {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  background: rgba(176, 141, 87, 0.12);
+  opacity: 1;
+}
+
+.equip-toggle.mark-equipped:hover {
+  border-color: var(--danger);
+  color: var(--loss);
+  background: rgba(192, 86, 79, 0.18);
+  opacity: 1;
+}
 
 /* ---- Logs ---- */
 
