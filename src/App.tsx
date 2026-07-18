@@ -22,6 +22,56 @@ function readHasUnbackedChanges(): boolean {
   return !backedUp || changed > backedUp;
 }
 
+/**
+ * One-time migration (2026-07-19): "Attunement Not Required" used to be a
+ * per-character mark (`AttunementState = 'not-required'`); it is now a property of
+ * the magic item itself (`GainedItem.requiresAttunement`). Moves every legacy
+ * 'not-required' mark onto its item in the item's source log (magic items are
+ * non-stacked, so the id lives in exactly one log) and strips it from the
+ * character; 'attuned' marks keep their meaning untouched. Self-terminating — once
+ * no 'not-required' marks remain there is nothing to do — and also runs after a
+ * restore, which can reintroduce legacy data from an old backup file.
+ */
+async function migrateLegacyAttunement(
+  characters: Character[],
+  logs: LogEntry[],
+): Promise<{ characters: Character[]; logs: LogEntry[]; migrated: boolean }> {
+  const notRequired = new Set<string>();
+  for (const c of characters) {
+    for (const [itemId, state] of Object.entries(c.attunement ?? {})) {
+      // The narrowed AttunementState no longer names the legacy value — compare as string.
+      if ((state as string) === 'not-required') notRequired.add(itemId);
+    }
+  }
+  if (notRequired.size === 0) return { characters, logs, migrated: false };
+
+  const nextLogs = logs.map((log) => {
+    if (!log.itemsGained.some((item) => notRequired.has(item.id))) return log;
+    return {
+      ...log,
+      itemsGained: log.itemsGained.map((item) =>
+        notRequired.has(item.id) ? { ...item, requiresAttunement: false } : item,
+      ),
+    };
+  });
+  const nextCharacters = characters.map((c) => {
+    if (!Object.values(c.attunement ?? {}).some((s) => (s as string) === 'not-required')) return c;
+    return {
+      ...c,
+      attunement: Object.fromEntries(
+        Object.entries(c.attunement ?? {}).filter(([, s]) => (s as string) !== 'not-required'),
+      ),
+    };
+  });
+  for (let i = 0; i < logs.length; i++) {
+    if (nextLogs[i] !== logs[i]) await db.putLog(nextLogs[i]);
+  }
+  for (let i = 0; i < characters.length; i++) {
+    if (nextCharacters[i] !== characters[i]) await db.putCharacter(nextCharacters[i]);
+  }
+  return { characters: nextCharacters, logs: nextLogs, migrated: true };
+}
+
 export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [characters, setCharacters] = useState<Character[]>([]);
@@ -42,9 +92,11 @@ export default function App() {
   }
 
   useEffect(() => {
-    Promise.all([db.getAllCharacters(), db.getAllLogs()]).then(([chars, allLogs]) => {
-      setCharacters(chars.sort((a, b) => a.createdAt - b.createdAt));
-      setLogs(allLogs);
+    Promise.all([db.getAllCharacters(), db.getAllLogs()]).then(async ([chars, allLogs]) => {
+      const migrated = await migrateLegacyAttunement(chars, allLogs);
+      if (migrated.migrated) markChanged();
+      setCharacters(migrated.characters.sort((a, b) => a.createdAt - b.createdAt));
+      setLogs(migrated.logs);
       setLoaded(true);
     });
   }, []);
@@ -134,12 +186,15 @@ export default function App() {
     setRestore(null);
     await db.importData(bundle, mode);
     const [chars, allLogs] = await Promise.all([db.getAllCharacters(), db.getAllLogs()]);
-    setCharacters(chars.sort((a, b) => a.createdAt - b.createdAt));
-    setLogs(allLogs);
+    // An old backup can reintroduce legacy 'not-required' marks — migrate them again.
+    const migrated = await migrateLegacyAttunement(chars, allLogs);
+    setCharacters(migrated.characters.sort((a, b) => a.createdAt - b.createdAt));
+    setLogs(migrated.logs);
     setView({ screen: 'list' });
-    // After a full replace the local data equals the backup file, so nothing is unbacked.
+    // After a full replace the local data equals the backup file, so nothing is unbacked
+    // — unless the migration rewrote it, in which case it no longer matches the file.
     // A merge can produce a combined state that exists in no file — still needs a backup.
-    if (mode === 'replace') markBackedUp();
+    if (mode === 'replace' && !migrated.migrated) markBackedUp();
     else markChanged();
   }
 

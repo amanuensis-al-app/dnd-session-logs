@@ -8,6 +8,7 @@ import {
   stackedItemId,
 } from './types';
 import { CONSUMABLE_NAME_RE, lookupCatalog } from './importAlLog';
+import { lookupKnownMagicItem } from './magicItemLookup';
 import { canonicalizeSpellScrollForText } from './spells';
 
 /**
@@ -54,6 +55,8 @@ function makeGain(input: {
   quantity: number;
   description?: string;
   minorProperty?: MinorProperty;
+  /** Attunement as stated in the text (DM's recap) — wins over the items-list lookup. */
+  requiresAttunement?: boolean;
 }): GainedItem {
   let name = input.name.trim();
   let category = input.category;
@@ -66,6 +69,16 @@ function makeGain(input: {
     rarity = scroll.rarity;
     category = 'consumable';
   }
+  // Magic items: the 5e.tools list supplies attunement (and a missing rarity) when
+  // the text itself didn't say.
+  let requiresAttunement = input.requiresAttunement;
+  if (category === 'magic_item') {
+    const known = lookupKnownMagicItem(name);
+    if (known) {
+      requiresAttunement ??= known.requiresAttunement;
+      rarity ??= known.rarity;
+    }
+  }
   const stacked = STACKED_CATEGORIES.includes(category);
   let description = input.description?.trim() || undefined;
   if (description && description.length > 400) description = `${description.slice(0, 400)}…`;
@@ -77,6 +90,7 @@ function makeGain(input: {
     quantity: Math.max(1, Math.round(input.quantity)),
     description: stacked ? undefined : description,
     minorProperty: category === 'magic_item' ? input.minorProperty : undefined,
+    requiresAttunement: category === 'magic_item' ? requiresAttunement : undefined,
   };
 }
 
@@ -199,6 +213,23 @@ function findRarity(text: string): Rarity | undefined {
   return ordered.find((r) => t.includes(r));
 }
 
+/**
+ * Attunement as stated in an item's text — some DMs note it in the recap
+ * ("(requires attunement)", "no attunement needed"). The negative runs first so
+ * "does not require attunement" can't trip the positive match.
+ */
+function detectAttunement(blob: string): boolean | undefined {
+  if (
+    /\b(?:does\s+not|doesn['’]t|not)\s+require\s+attunement\b|\bno\s+attunement\s+(?:is\s+)?required\b|\battunement\s+(?:is\s+)?not\s+required\b|\bwithout\s+attunement\b|\bno\s+attunement\s+needed\b/i.test(
+      blob,
+    )
+  ) {
+    return false;
+  }
+  if (/\brequires?\s+attunement\b|\battunement\s+required\b/i.test(blob)) return true;
+  return undefined;
+}
+
 /** "[VR]" / "[Uncommon]" style rarity tags trailing an item name. */
 const RARITY_ABBREVIATIONS: Record<string, Rarity> = {
   c: 'common',
@@ -285,6 +316,7 @@ export function parseLogText(text: string, characterId: string): TextImportResul
         quantity: current.quantity,
         description,
         minorProperty,
+        requiresAttunement: detectAttunement(blob),
       }),
     );
     current = null;
@@ -575,7 +607,8 @@ Use exactly this shape:
       "rarity": one of "common", "uncommon", "rare", "very rare", "legendary", "artifact" — or null,
       "quantity": number,
       "description": "one short sentence, or null",
-      "minorProperty": one of ${MINOR_PROPERTIES.map((p) => `"${p}"`).join(', ')} — or null
+      "minorProperty": one of ${MINOR_PROPERTIES.map((p) => `"${p}"`).join(', ')} — or null,
+      "requiresAttunement": true or false — magic items only: whether the write-up says the item requires attunement; null if it doesn't say
     }
   ],
   "notes": "anything else worth keeping (story awards, epilogue in one line), or null"
@@ -584,6 +617,7 @@ Use exactly this shape:
 Rules:
 - Potions, oils, elixirs and scrolls are "consumable". Magical weapons, armor and wondrous items are "magic_item". Ordinary gear is "equipment".
 - Spell scrolls: name them "Spell Scroll of <Spell Name>" (e.g. "Spell Scroll of Fireball"), not "Spell Scroll (Spell Name)".
+- Some write-ups state a magic item's attunement requirement ("requires attunement", "no attunement needed") — record exactly that in "requiresAttunement". If the write-up doesn't mention it, use null; don't guess from the item's name.
 - List every item the party received; the player will remove the ones they didn't take.
 - Text between || bars is a Discord spoiler — read it normally.
 - If something is unclear, make your best guess: a person reviews everything afterwards.
@@ -661,6 +695,9 @@ export function parseChatbotReply(reply: string, characterId: string): TextImpor
         quantity: numeric(item.quantity) ?? 1,
         description: str(item.description),
         minorProperty,
+        // What the write-up said (via the chatbot) wins over the items-list lookup.
+        requiresAttunement:
+          typeof item.requiresAttunement === 'boolean' ? item.requiresAttunement : undefined,
       }),
     );
   }

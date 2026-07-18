@@ -18,6 +18,7 @@ import {
 } from './types';
 import { lookupCatalog, normalizeKey, type AlImportResult } from './importAlLog';
 import { baseNameKey, canonicalConsumable, characterNameFromFile } from './importSheetLog';
+import { lookupKnownMagicItem } from './magicItemLookup';
 import { canonicalizeSpellScrollForImport } from './spells';
 import { parseLooseDate } from './importText';
 
@@ -227,6 +228,11 @@ export function parseSheetChatbotReply(reply: string, fileName?: string): AlImpo
     }
     if (category !== 'magic_item' && category !== 'consumable') rarity = undefined;
 
+    // The sheet has no attunement info — the 5e.tools list answers it (and a rarity,
+    // should the chatbot not have given one).
+    const known = category === 'magic_item' ? lookupKnownMagicItem(name) : undefined;
+    if (known && rarity === undefined) rarity = known.rarity;
+
     const stacked = category === 'consumable' || category === 'equipment';
     const quantity = Math.max(1, Math.round(numeric(item.quantity) ?? 1));
     const cost = logType === 'purchase' ? numeric(item.cost) : undefined;
@@ -241,6 +247,7 @@ export function parseSheetChatbotReply(reply: string, fileName?: string): AlImpo
       quantity,
       description: stacked ? undefined : str(item.description),
       minorProperty: category === 'magic_item' ? minorProperty : undefined,
+      requiresAttunement: known?.requiresAttunement,
       cost: cost !== undefined ? Math.max(0, cost) : undefined,
     };
     if (stacked) {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { AttunementState, Character, DerivedStats, LogEntry } from '../types';
+import type { AttunementState, Character, DerivedStats, InventoryItem, LogEntry } from '../types';
 import { formatGp, knownValues, logsForCharacter } from '../derive';
 import { Inventory } from './Inventory';
 import { Prep } from './Prep';
@@ -65,13 +65,27 @@ export function CharacterSheet({
     onSaveCharacter({ ...character, itemMarks });
   }
 
-  /** Sets (or clears, if undefined) a magic item's attunement state — Prep's
-   * dropdown picks the value directly, this just persists it. */
+  /** Sets (or clears, if undefined) a magic item's attuned mark — Prep's dropdown
+   * picks the value directly, this just persists it. */
   function setItemAttunement(itemId: string, state: AttunementState | undefined) {
     const attunement = { ...character.attunement };
     if (state) attunement[itemId] = state;
     else delete attunement[itemId];
     onSaveCharacter({ ...character, attunement });
+  }
+
+  /** Requires-attunement is a property of the item itself, so it is written back to
+   * the gain in the item's source log (magic items are non-stacked: the id lives in
+   * exactly one log). The derived inventory re-reads it on the next render. */
+  function setItemRequiresAttunement(item: InventoryItem, requiresAttunement: boolean) {
+    const source = logs.find((l) => l.id === item.sourceLogId);
+    if (!source) return;
+    onSaveLog({
+      ...source,
+      itemsGained: source.itemsGained.map((g) =>
+        g.id === item.id ? { ...g, requiresAttunement } : g,
+      ),
+    });
   }
 
   return (
@@ -286,7 +300,12 @@ export function CharacterSheet({
             )}
 
             {tab === 'inventory' && (
-              <Inventory character={character} derived={derived} onToggleMark={toggleItemMark} />
+              <Inventory
+                character={character}
+                derived={derived}
+                onToggleMark={toggleItemMark}
+                onSetRequiresAttunement={setItemRequiresAttunement}
+              />
             )}
             {tab === 'prep' && (
               <Prep

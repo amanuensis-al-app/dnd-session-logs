@@ -26,8 +26,10 @@ import {
 } from '../types';
 import { CREATION_BACKGROUNDS, CREATION_CLASSES, ITEM_CATALOG } from '../catalog';
 import type { CreationOption } from '../catalog';
+import type { KnownMagicItem } from '../data/magicItems';
 import { formatGp, sortLogs } from '../derive';
 import { costForSpellLevel, rarityForSpellLevel, type SpellDefinition } from '../spells';
+import { MagicItemPicker } from './MagicItemPicker';
 import { SpellScrollPicker } from './SpellScrollPicker';
 
 interface Props {
@@ -143,6 +145,68 @@ function ComboInput({
   );
 }
 
+/**
+ * Magic-item name cell with two ways to fill the name (owner request 2026-07-19):
+ * "✏️ Input manually" — free text, like Equipment's manual input — or "📋 Pick from
+ * List", a search modal over the 5e.tools items list that also fills rarity and the
+ * attunement requirement. Rows start in "choose" mode when the name is blank (new
+ * row), in "manual" mode when it isn't (editing a log, prefilled import); the pick
+ * lands in manual mode so the name stays editable afterwards.
+ */
+function MagicItemNameField({
+  value,
+  onChangeName,
+  onPick,
+}: {
+  value: string;
+  onChangeName: (name: string) => void;
+  onPick: (item: KnownMagicItem) => void;
+}) {
+  const [mode, setMode] = useState<'choose' | 'manual'>(() => (value.trim() ? 'manual' : 'choose'));
+  const [picking, setPicking] = useState(false);
+
+  if (mode === 'manual') {
+    return (
+      <span className="combo">
+        <input
+          value={value}
+          onChange={(e) => onChangeName(e.target.value)}
+          placeholder="item name *"
+        />
+        <button
+          type="button"
+          className="btn btn-ghost btn-small"
+          title="Pick from the magic items list instead"
+          onClick={() => setMode('choose')}
+        >
+          ▾
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <span className="magic-name-choose">
+      <button type="button" className="btn btn-ghost btn-small" onClick={() => setMode('manual')}>
+        ✏️ Input manually
+      </button>
+      <button type="button" className="btn btn-ghost btn-small" onClick={() => setPicking(true)}>
+        📋 Pick from List
+      </button>
+      {picking && (
+        <MagicItemPicker
+          onClose={() => setPicking(false)}
+          onPick={(item) => {
+            setPicking(false);
+            setMode('manual');
+            onPick(item);
+          }}
+        />
+      )}
+    </span>
+  );
+}
+
 const TYPE_HELP: Record<LogType, string> = {
   session: 'A played session: rewards (and occasional losses) of gold, downtime, items and buffs.',
   catchup: 'Downtime activity: spend 10 downtime days per level gained.',
@@ -164,6 +228,8 @@ interface GainDraft {
   description: string;
   /** Magic items only: at most one of MINOR_PROPERTIES, or '' for none. */
   minorProperty: MinorProperty | '';
+  /** Magic items only: whether the item requires attunement (saved on the item). */
+  requiresAttunement: boolean;
   /** Per-unit price in GP; only shown (and saved) for purchase logs. */
   cost: string;
 }
@@ -189,6 +255,9 @@ function emptyGain(category: ItemCategory = 'magic_item'): GainDraft {
     quantity: '1',
     description: '',
     minorProperty: '',
+    // Default true: absent requiresAttunement on a saved item also means "requires
+    // attunement" (the tracker's original behavior for every magic item).
+    requiresAttunement: true,
     cost: '',
   };
 }
@@ -247,6 +316,7 @@ export function LogForm({
       quantity: String(item.quantity),
       description: item.description ?? '',
       minorProperty: (item.minorProperty ?? '') as MinorProperty | '',
+      requiresAttunement: item.requiresAttunement ?? true,
       cost: item.cost != null ? String(item.cost) : '',
     }));
     // Purchase logs saved before per-item costs existed only stored the total; put it
@@ -302,6 +372,11 @@ export function LogForm({
   );
   const [tradeGainedDescription, setTradeGainedDescription] = useState(
     existingLog?.type === 'transaction' ? (existingLog.itemsGained[0]?.description ?? '') : '',
+  );
+  const [tradeGainedRequiresAttunement, setTradeGainedRequiresAttunement] = useState(
+    existingLog?.type === 'transaction'
+      ? (existingLog.itemsGained[0]?.requiresAttunement ?? true)
+      : true,
   );
 
   // Items this form may record as lost: current inventory, plus whatever this log
@@ -499,6 +574,7 @@ export function LogForm({
           quantity: Math.max(1, Math.round(num(g.quantity))),
           description: stacked ? undefined : g.description.trim() || undefined,
           minorProperty: g.category === 'magic_item' && g.minorProperty ? g.minorProperty : undefined,
+          requiresAttunement: g.category === 'magic_item' ? g.requiresAttunement : undefined,
           cost: type === 'purchase' && g.cost.trim() !== '' ? Math.max(0, num(g.cost)) : undefined,
         };
       });
@@ -549,6 +625,7 @@ export function LogForm({
               quantity: 1,
               description: tradeGainedDescription.trim() || undefined,
               minorProperty: tradeGainedMinorProperty || undefined,
+              requiresAttunement: tradeGainedRequiresAttunement,
             },
           ],
           itemsLost: [{ itemId: tradeLostItem.id, quantity: 1, reason: 'traded' }],
@@ -1050,6 +1127,18 @@ export function LogForm({
                 </select>
               </label>
               <label>
+                Attunement
+                <select
+                  value={tradeGainedRequiresAttunement ? 'required' : 'not-required'}
+                  onChange={(e) =>
+                    setTradeGainedRequiresAttunement(e.target.value === 'required')
+                  }
+                >
+                  <option value="required">Requires Attunement</option>
+                  <option value="not-required">Attunement Not Required</option>
+                </select>
+              </label>
+              <label>
                 Description
                 <input
                   value={tradeGainedDescription}
@@ -1085,45 +1174,59 @@ export function LogForm({
                 ))}
               </select>
               <span className="item-row-name">
-                <ComboInput
-                  key={g.category}
-                  value={g.name}
-                  // Catalog order (grouped by section), NOT alphabetical.
-                  options={(ITEM_CATALOG[g.category] ?? []).map((c) => c.name)}
-                  optionGroup={(name) =>
-                    ITEM_CATALOG[g.category]?.find((c) => c.name === name)?.group
-                  }
-                  optionLabel={
-                    // Prices only matter when buying. The selected option keeps its
-                    // plain name so the closed select shows "Flail", not "Flail — 10 gp".
-                    // "Spell Scroll" has no fixed price (it depends which spell gets
-                    // picked), so it's left bare either way.
-                    type === 'purchase'
-                      ? (name) => {
-                          if (name === g.name || name === 'Spell Scroll') return name;
-                          const entry = ITEM_CATALOG[g.category]?.find((c) => c.name === name);
-                          return entry ? `${name} — ${formatGp(entry.cost)} gp` : name;
-                        }
-                      : undefined
-                  }
-                  placeholder="item name *"
-                  onChange={(name) => {
-                    // "Spell Scroll" opens the picker instead of filling anything in
-                    // directly — rarity/cost come from whichever spell gets chosen.
-                    if (g.category === 'consumable' && name === 'Spell Scroll') {
-                      updateGain(g.key, { name });
-                      setSpellPickerFor(g.key);
-                      return;
+                {g.category === 'magic_item' ? (
+                  <MagicItemNameField
+                    value={g.name}
+                    onChangeName={(name) => updateGain(g.key, { name })}
+                    onPick={(item) =>
+                      updateGain(g.key, {
+                        name: item.name,
+                        rarity: item.rarity,
+                        requiresAttunement: item.requiresAttunement,
+                      })
                     }
-                    const entry = ITEM_CATALOG[g.category]?.find((c) => c.name === name);
-                    // Picking a catalog item fills in its rarity, and its price in a purchase.
-                    updateGain(g.key, {
-                      name,
-                      ...(entry?.rarity ? { rarity: entry.rarity } : {}),
-                      ...(type === 'purchase' && entry ? { cost: String(entry.cost) } : {}),
-                    });
-                  }}
-                />
+                  />
+                ) : (
+                  <ComboInput
+                    key={g.category}
+                    value={g.name}
+                    // Catalog order (grouped by section), NOT alphabetical.
+                    options={(ITEM_CATALOG[g.category] ?? []).map((c) => c.name)}
+                    optionGroup={(name) =>
+                      ITEM_CATALOG[g.category]?.find((c) => c.name === name)?.group
+                    }
+                    optionLabel={
+                      // Prices only matter when buying. The selected option keeps its
+                      // plain name so the closed select shows "Flail", not "Flail — 10 gp".
+                      // "Spell Scroll" has no fixed price (it depends which spell gets
+                      // picked), so it's left bare either way.
+                      type === 'purchase'
+                        ? (name) => {
+                            if (name === g.name || name === 'Spell Scroll') return name;
+                            const entry = ITEM_CATALOG[g.category]?.find((c) => c.name === name);
+                            return entry ? `${name} — ${formatGp(entry.cost)} gp` : name;
+                          }
+                        : undefined
+                    }
+                    placeholder="item name *"
+                    onChange={(name) => {
+                      // "Spell Scroll" opens the picker instead of filling anything in
+                      // directly — rarity/cost come from whichever spell gets chosen.
+                      if (g.category === 'consumable' && name === 'Spell Scroll') {
+                        updateGain(g.key, { name });
+                        setSpellPickerFor(g.key);
+                        return;
+                      }
+                      const entry = ITEM_CATALOG[g.category]?.find((c) => c.name === name);
+                      // Picking a catalog item fills in its rarity, and its price in a purchase.
+                      updateGain(g.key, {
+                        name,
+                        ...(entry?.rarity ? { rarity: entry.rarity } : {}),
+                        ...(type === 'purchase' && entry ? { cost: String(entry.cost) } : {}),
+                      });
+                    }}
+                  />
+                )}
               </span>
               {type === 'purchase' && (
                 <input
@@ -1164,6 +1267,18 @@ export function LogForm({
                       {p}
                     </option>
                   ))}
+                </select>
+              )}
+              {g.category === 'magic_item' && (
+                <select
+                  value={g.requiresAttunement ? 'required' : 'not-required'}
+                  title="Whether this item requires attunement"
+                  onChange={(e) =>
+                    updateGain(g.key, { requiresAttunement: e.target.value === 'required' })
+                  }
+                >
+                  <option value="required">Requires Attunement</option>
+                  <option value="not-required">Attunement Not Required</option>
                 </select>
               )}
               <input

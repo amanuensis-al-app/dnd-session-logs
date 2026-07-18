@@ -20,6 +20,7 @@ import {
   type NotesItem,
 } from './importAlLog';
 import { canonicalizeSpellScrollForImport, resolveSpellScroll } from './spells';
+import { lookupKnownMagicItem } from './magicItemLookup';
 
 /**
  * Importer for the owner's personal Google-Sheets log format ("DND Log Sheet").
@@ -269,13 +270,17 @@ export function importSheetLog(csvText: string, fileName?: string): AlImportResu
 
     const { name, minorProperty } =
       category === 'magic_item' ? splitMinorProperty(stripped) : { name: stripped, minorProperty: undefined };
+    // The sheet has no attunement column — the 5e.tools list answers it (and a
+    // rarity, should the row's own rarity cell be blank).
+    const known = category === 'magic_item' ? lookupKnownMagicItem(name) : undefined;
     const item: GainedItem = {
       id: newId(),
       name,
       category,
-      rarity: category === 'magic_item' ? row.rarity : undefined,
+      rarity: category === 'magic_item' ? (row.rarity ?? known?.rarity) : undefined,
       quantity: Math.max(1, row.count),
       minorProperty,
+      requiresAttunement: known?.requiresAttunement,
     };
     gainedMagic.push({
       keys: [normalizeKey(row.name), normalizeKey(name)],

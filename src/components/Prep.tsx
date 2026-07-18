@@ -34,11 +34,13 @@ const MAGIC_ITEM_POOLS: PrepPool[] = ['magicItemUncommonPlus', 'magicItemCommon'
  * never blocked — Prep just flags the pool as over, same "warn don't block"
  * philosophy as the rest of the app (negative-quantity items, downtime overspend).
  *
- * Magic items (both pools) also get an attunement dropdown (Not Attuned / Attuned /
- * Attunement Not Required) — the "Attuned" option is disabled once the character
- * hits the shared 3-item cap (ATTUNEMENT_CAP in tiers.ts), so it can be seen but not
- * selected, same "cannot be selected" behavior for whichever item would push the
- * count over the cap.
+ * Magic items (both pools) also get an attunement dropdown when the item requires
+ * attunement (its own `requiresAttunement` property — set from the Inventory tab or
+ * the log form): Not Attuned / Attuned. The "Attuned" option is disabled once the
+ * character hits the shared 3-item cap (ATTUNEMENT_CAP in tiers.ts), so it can be
+ * seen but not selected, same "cannot be selected" behavior for whichever item
+ * would push the count over the cap. Items that don't require attunement show a
+ * static "Attunement Not Required" tag instead of the dropdown.
  */
 export function Prep({ character, derived, onToggleMark, onSetAttunement }: Props) {
   const tier = tierForLevel(derived.level);
@@ -60,10 +62,17 @@ export function Prep({ character, derived, onToggleMark, onSetAttunement }: Prop
   }
 
   // Shared across both magic item pools — a character is attuned to at most
-  // ATTUNEMENT_CAP items total, regardless of rarity.
+  // ATTUNEMENT_CAP items total, regardless of rarity. Only items that require
+  // attunement can hold a cap slot; a stray 'attuned' mark on a not-required item
+  // (flag flipped after attuning) doesn't count.
   const attunedCount = MAGIC_ITEM_POOLS.reduce(
     (sum, pool) =>
-      sum + pools.get(pool)!.equipped.filter((i) => character.attunement?.[i.id] === 'attuned').length,
+      sum +
+      pools
+        .get(pool)!
+        .equipped.filter(
+          (i) => (i.requiresAttunement ?? true) && character.attunement?.[i.id] === 'attuned',
+        ).length,
     0,
   );
 
@@ -95,7 +104,8 @@ export function Prep({ character, derived, onToggleMark, onSetAttunement }: Prop
             )}
             <ul className="inventory-items prep-slots">
               {equipped.map((item) => {
-                const attunement = character.attunement?.[item.id];
+                const attuned = character.attunement?.[item.id] === 'attuned';
+                const requiresAttunement = item.requiresAttunement ?? true;
                 return (
                   <li key={item.id} className="inventory-item">
                     <div className="inventory-item-main">
@@ -108,24 +118,31 @@ export function Prep({ character, derived, onToggleMark, onSetAttunement }: Prop
                           {item.rarity}
                         </span>
                       )}
-                      {isMagicItemPool && (
-                        <select
-                          className={`attune-select${attunement ? ` attune-${attunement}` : ''}`}
-                          value={attunement ?? ''}
-                          onChange={(e) =>
-                            onSetAttunement(
-                              item.id,
-                              (e.target.value || undefined) as AttunementState | undefined,
-                            )
-                          }
-                        >
-                          <option value="">Not Attuned</option>
-                          <option value="attuned" disabled={attunement !== 'attuned' && attunedCount >= ATTUNEMENT_CAP}>
-                            Attuned
-                          </option>
-                          <option value="not-required">Attunement Not Required</option>
-                        </select>
-                      )}
+                      {isMagicItemPool &&
+                        (requiresAttunement ? (
+                          <select
+                            className={`attune-select${attuned ? ' attune-attuned' : ''}`}
+                            value={attuned ? 'attuned' : ''}
+                            onChange={(e) =>
+                              onSetAttunement(
+                                item.id,
+                                (e.target.value || undefined) as AttunementState | undefined,
+                              )
+                            }
+                          >
+                            <option value="">Not Attuned</option>
+                            <option
+                              value="attuned"
+                              disabled={!attuned && attunedCount >= ATTUNEMENT_CAP}
+                            >
+                              Attuned
+                            </option>
+                          </select>
+                        ) : (
+                          <span className="attune-select attune-not-required">
+                            Attunement Not Required
+                          </span>
+                        ))}
                       <button
                         className="equip-toggle mark-equipped"
                         title="Equipped — click to unequip"

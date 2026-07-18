@@ -12,9 +12,12 @@ interface Props {
   derived: DerivedStats;
   /** Toggles an item's equipped mark on/off. */
   onToggleMark: (itemId: string) => void;
+  /** Sets whether a magic item requires attunement — a property of the item itself,
+   * written back to its source log. */
+  onSetRequiresAttunement: (item: InventoryItem, requiresAttunement: boolean) => void;
 }
 
-export function Inventory({ character, derived, onToggleMark }: Props) {
+export function Inventory({ character, derived, onToggleMark, onSetRequiresAttunement }: Props) {
   // remaining < 0 means more was lost/used than ever gained — an invalid log somewhere.
   // Show those with a warning instead of hiding them, so the user can find and fix it.
   const visibleItems = derived.allItems.filter((i) => i.remaining !== 0);
@@ -77,6 +80,19 @@ export function Inventory({ character, derived, onToggleMark }: Props) {
                         ) : null}
                       </span>
                       {item.rarity && <span className={`rarity rarity-${item.rarity.replace(' ', '-')}`}>{item.rarity}</span>}
+                      {item.category === 'magic_item' && (
+                        <select
+                          className={`attune-select${(item.requiresAttunement ?? true) ? '' : ' attune-not-required'}`}
+                          title="Whether this item requires attunement"
+                          value={(item.requiresAttunement ?? true) ? 'required' : 'not-required'}
+                          onChange={(e) =>
+                            onSetRequiresAttunement(item, e.target.value === 'required')
+                          }
+                        >
+                          <option value="required">Requires Attunement</option>
+                          <option value="not-required">Attunement Not Required</option>
+                        </select>
+                      )}
                       {item.remaining > 0 && equippable && (
                         <button
                           className={`equip-toggle${marked ? ' mark-equipped' : ''}`}

@@ -844,6 +844,19 @@ span.item-row-name > * {
   min-width: 0;
 }
 
+/* Magic-item name cell: the "Input manually / Pick from List" choice buttons
+   (LogForm gain rows) share the slot evenly. */
+.magic-name-choose {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.magic-name-choose > .btn {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+}
+
 /* ---- Modal ---- */
 
 .modal-overlay {

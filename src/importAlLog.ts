@@ -8,6 +8,7 @@ import type {
 } from './types';
 import { newId, RARITIES, stackedItemId } from './types';
 import { ITEM_CATALOG, type CatalogItem } from './catalog';
+import { lookupKnownMagicItem } from './magicItemLookup';
 import { canonicalizeSpellScrollForImport, resolveSpellScroll } from './spells';
 
 /**
@@ -330,15 +331,19 @@ export function importAlLog(csvText: string): AlImportResult {
     // land in the same consumable stack as scrolls parsed from notes bullets.
     const scroll = canonicalizeSpellScrollForImport(row.name, row.rarity);
     const category: ItemCategory = scroll.isSpellScroll ? 'consumable' : 'magic_item';
+    // The CSV has no attunement column — the 5e.tools list answers it (and a rarity,
+    // should the row's own rarity be missing).
+    const known = category === 'magic_item' ? lookupKnownMagicItem(row.name) : undefined;
     const item: GainedItem = {
       id: scroll.isSpellScroll
         ? stackedItemId({ category, name: scroll.name, rarity: scroll.rarity })
         : newId(),
       name: scroll.name,
       category,
-      rarity: scroll.rarity,
+      rarity: scroll.rarity ?? known?.rarity,
       quantity: 1,
       description: scroll.isSpellScroll ? undefined : row.notes,
+      requiresAttunement: known?.requiresAttunement,
     };
     gainedMagic.push({ key: normalizeKey(scroll.name), name: scroll.name, id: item.id, remaining: 1 });
     return item;

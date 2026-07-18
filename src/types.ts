@@ -127,6 +127,12 @@ export interface GainedItem {
   description?: string;
   /** Magic items only: at most one of MINOR_PROPERTIES. */
   minorProperty?: MinorProperty;
+  /** Magic items only: whether the item requires attunement — a property of the ITEM
+   * itself, unlike attuned/not-attuned which is a per-character prep state (see
+   * AttunementState). Absent = requires attunement (the tracker's original default:
+   * every magic item used to show Prep's attunement dropdown), so only `false` is
+   * ever meaningful to read. */
+  requiresAttunement?: boolean;
   /** Purchase price per unit in GP. Recorded by purchase logs, which derive their GP spent from it. */
   cost?: number;
 }
@@ -191,13 +197,18 @@ export interface LogEntry {
 export type ItemMark = 'equipped';
 
 /**
- * Attunement state for an equipped magic item (`category === 'magic_item'` only —
- * meaningless elsewhere). Absent = not attuned, the default. A character can be
- * attuned to at most 3 magic items at once (shared cap across every rarity, see
- * `ATTUNEMENT_CAP` in `tiers.ts`) — this type is just the stored shape, set from
- * Prep's attunement dropdown.
+ * Attunement state for an equipped magic item in the context of preparation
+ * (`category === 'magic_item'` only — meaningless elsewhere). Absent = not attuned,
+ * the default. A character can be attuned to at most 3 magic items at once (shared
+ * cap across every rarity, see `ATTUNEMENT_CAP` in `tiers.ts`) — this type is just
+ * the stored shape, set from Prep's attunement dropdown.
+ *
+ * Whether an item REQUIRES attunement is a separate concern: a property of the item
+ * itself (`GainedItem.requiresAttunement`), not stored here. Until 2026-07-19 this
+ * type also had `'not-required'` for that; App.tsx migrates any such legacy marks
+ * onto their items on load, so only 'attuned' remains.
  */
-export type AttunementState = 'attuned' | 'not-required';
+export type AttunementState = 'attuned';
 
 export interface Character {
   id: string;
