@@ -36,6 +36,11 @@ export function MagicItemPicker({ onPick, onClose }: Props) {
         autoFocus
         value={query}
         onChange={(e) => setQuery(e.target.value)}
+        // The picker opens inside enclosing forms (log form, item edit modal) —
+        // don't let an Enter keystroke submit them.
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.preventDefault();
+        }}
         placeholder="Search magic items…"
       />
       <div className="spell-picker-list">

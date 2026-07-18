@@ -17,6 +17,9 @@ interface Props {
   onToggleMark: (itemId: string) => void;
   /** Sets (or clears, if undefined) a magic item's attunement state. */
   onSetAttunement: (itemId: string, state: AttunementState | undefined) => void;
+  /** Sets how many units of an equipped consumable stack are prepped (undefined =
+   * the whole stack). */
+  onSetEquipQuantity: (itemId: string, quantity: number | undefined) => void;
 }
 
 const rarityRank = (r?: Rarity) => (r ? RARITIES.indexOf(r) : -1);
@@ -25,9 +28,15 @@ const byRarityThenName = (a: InventoryItem, b: InventoryItem) =>
 
 const MAGIC_ITEM_POOLS: PrepPool[] = ['magicItemUncommonPlus', 'magicItemCommon'];
 
+/** Pools where stacked items prep per-UNIT, each unit counting toward the pool's
+ * used number (equipment's count is informational only — its pool is uncapped). */
+const QUANTITY_POOLS: PrepPool[] = ['consumable', 'equipment'];
+
 /**
  * AL carry limits, tier-gated: fixed slots per pool (Magic Items split Uncommon+ /
- * Common, plus Consumables / Blessings / Charms / Boons — see tiers.ts). Filled
+ * Common, plus Consumables / Blessings / Charms / Boons — see tiers.ts); Equipment
+ * is the one UNCAPPED pool (weight is the real AL limit, untracked here), so it
+ * shows a plain count and always offers one empty slot. Filled
  * slots show the equipped item with an unequip toggle; a character under their limit
  * gets empty slots, each a dropdown to pick any owned-but-unequipped item of that
  * pool straight into it. Equipping past the limit (e.g. from the Inventory tab) is
@@ -41,8 +50,14 @@ const MAGIC_ITEM_POOLS: PrepPool[] = ['magicItemUncommonPlus', 'magicItemCommon'
  * seen but not selected, same "cannot be selected" behavior for whichever item
  * would push the count over the cap. Items that don't require attunement show a
  * static "Attunement Not Required" tag instead of the dropdown.
+ *
+ * Consumable and Equipment stacks prep by QUANTITY, not per stack: an equipped
+ * stack shows a quantity picker (1…remaining; default the whole stack, stored
+ * sparsely in Character.equipQuantities) and counts that many toward the pool's
+ * used number — prepping 3 of 5 potions uses 3 consumable slots. Equipment's
+ * count is informational only, its pool being uncapped.
  */
-export function Prep({ character, derived, onToggleMark, onSetAttunement }: Props) {
+export function Prep({ character, derived, onToggleMark, onSetAttunement, onSetEquipQuantity }: Props) {
   const tier = tierForLevel(derived.level);
 
   // Equipment/Story Awards can't carry an equip mark at all (see EQUIPPABLE_CATEGORIES);
@@ -60,6 +75,16 @@ export function Prep({ character, derived, onToggleMark, onSetAttunement }: Prop
     bucket.equipped.sort(byRarityThenName);
     bucket.available.sort(byRarityThenName);
   }
+
+  // How many units of an equipped stack are prepped — the stored value clamped to
+  // what's actually owned (losses can shrink a stack below it), default the whole
+  // stack. Pools outside QUANTITY_POOLS always spend 1 slot per equipped item.
+  const preparedOf = (item: InventoryItem) =>
+    Math.min(character.equipQuantities?.[item.id] ?? item.remaining, item.remaining);
+  const slotsUsed = (pool: PrepPool, equipped: InventoryItem[]) =>
+    QUANTITY_POOLS.includes(pool)
+      ? equipped.reduce((sum, i) => sum + preparedOf(i), 0)
+      : equipped.length;
 
   // Shared across both magic item pools — a character is attuned to at most
   // ATTUNEMENT_CAP items total, regardless of rarity. Only items that require
@@ -85,20 +110,26 @@ export function Prep({ character, derived, onToggleMark, onSetAttunement }: Prop
         const limit = prepLimit(tier, pool);
         const { equipped, available } = pools.get(pool)!;
         if (limit === 0 && equipped.length === 0) return null;
-        const emptySlots = Math.max(0, limit - equipped.length);
-        const overBy = Math.max(0, equipped.length - limit);
+        // Equipment is uncapped: it can never go over, and there is always one
+        // empty slot to add the next piece of gear.
+        const unlimited = !Number.isFinite(limit);
+        const used = slotsUsed(pool, equipped);
+        const emptySlots = unlimited ? 1 : Math.max(0, limit - used);
+        const overBy = unlimited ? 0 : Math.max(0, used - limit);
         const isMagicItemPool = MAGIC_ITEM_POOLS.includes(pool);
+        const isQuantityPool = QUANTITY_POOLS.includes(pool);
         return (
           <section key={pool} className="card inventory-section">
             <h2>
               {PREP_POOL_LABELS[pool]}{' '}
               <span className="muted">
-                ({equipped.length}/{limit})
+                ({used}
+                {unlimited ? '' : `/${limit}`})
               </span>
             </h2>
             {overBy > 0 && (
               <div className="warning prep-over-limit">
-                ⚠ {equipped.length} equipped but Tier {tier} only allows {limit} — unequip {overBy} to
+                ⚠ {used} equipped but Tier {tier} only allows {limit} — unequip {overBy} to
                 fix.
               </div>
             )}
@@ -106,12 +137,35 @@ export function Prep({ character, derived, onToggleMark, onSetAttunement }: Prop
               {equipped.map((item) => {
                 const attuned = character.attunement?.[item.id] === 'attuned';
                 const requiresAttunement = item.requiresAttunement ?? true;
+                const prepared = preparedOf(item);
                 return (
                   <li key={item.id} className="inventory-item">
                     <div className="inventory-item-main">
                       <span className="inventory-item-name">
                         {item.name}
-                        {item.remaining > 1 && <span className="muted"> ×{item.remaining}</span>}
+                        {isQuantityPool && item.remaining > 1 ? (
+                          <>
+                            {' '}
+                            <select
+                              className="prep-qty-select"
+                              value={prepared}
+                              title="How many to prepare (each takes a slot)"
+                              onChange={(e) => {
+                                const q = Number(e.target.value);
+                                onSetEquipQuantity(item.id, q >= item.remaining ? undefined : q);
+                              }}
+                            >
+                              {Array.from({ length: item.remaining }, (_, i) => i + 1).map((q) => (
+                                <option key={q} value={q}>
+                                  {q}
+                                </option>
+                              ))}
+                            </select>
+                            <span className="muted"> of ×{item.remaining}</span>
+                          </>
+                        ) : (
+                          item.remaining > 1 && <span className="muted"> ×{item.remaining}</span>
+                        )}
                       </span>
                       {item.rarity && (
                         <span className={`rarity rarity-${item.rarity.replace(' ', '-')}`}>

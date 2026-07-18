@@ -46,12 +46,14 @@ export type Rarity = (typeof RARITIES)[number];
 /** Categories that carry a rarity. */
 export const RARITY_CATEGORIES: ItemCategory[] = ['magic_item', 'consumable'];
 
-/** Categories the "equipped" mark applies to. Plain Equipment (mundane gear) and
- * Story Awards aren't "equippable" in this tracker's sense — owner decision
- * 2026-07-18, deliberately excluding the category literally named "Equipment". */
+/** Categories the "equipped" mark applies to. Story Awards aren't "equippable" in
+ * this tracker's sense. (Owner decision 2026-07-18 originally excluded mundane
+ * Equipment too — reversed 2026-07-19 when the Prep tab gained an unlimited
+ * Equipment pool; Story Awards remain the only non-equippable category.) */
 export const EQUIPPABLE_CATEGORIES: ItemCategory[] = [
   'magic_item',
   'consumable',
+  'equipment',
   'blessing',
   'charm',
   'boon',
@@ -222,6 +224,12 @@ export interface Character {
   icon?: string;
   /** Equipped item ids (see ItemMark). Travels in the backup JSON. */
   itemMarks?: Record<string, ItemMark>;
+  /** How many units of an equipped consumable/equipment stack are prepped (Prep
+   * tab), keyed by the same stack id as itemMarks. Absent = the whole stack.
+   * Sparse; meaningless for non-stacked categories and dangles harmlessly, same
+   * philosophy as itemMarks. Consumables count these as slots in Prep: prepping
+   * 3 of 5 potions spends 3 consumable slots. */
+  equipQuantities?: Record<string, number>;
   /** Attunement state per magic item id (see AttunementState). Travels in the
    * backup JSON; harmless if it dangles on an item that's since been unequipped or
    * lost, same philosophy as itemMarks. */

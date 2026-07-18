@@ -7,6 +7,7 @@ import {
   RARITY_CATEGORIES,
   STACKED_CATEGORIES,
 } from '../types';
+import { MagicItemNameField } from './MagicItemNameField';
 import { Modal } from './Modal';
 
 /** What the inventory item editor may change. Quantity and per-log pricing are
@@ -63,10 +64,26 @@ export function ItemEditModal({ item, onSave, onClose }: Props) {
         </p>
       )}
       <form onSubmit={submit} className="item-edit-form">
-        <label>
-          Name *
-          <input autoFocus value={name} onChange={(e) => setName(e.target.value)} required />
-        </label>
+        {isMagic ? (
+          <div className="field-stack">
+            <span>Name *</span>
+            <MagicItemNameField
+              value={name}
+              onChangeName={setName}
+              onPick={(picked) => {
+                setName(picked.name);
+                setRarity(picked.rarity);
+                setRequiresAttunement(picked.requiresAttunement);
+              }}
+              autoFocus
+            />
+          </div>
+        ) : (
+          <label>
+            Name *
+            <input autoFocus value={name} onChange={(e) => setName(e.target.value)} required />
+          </label>
+        )}
         {hasRarity && (
           <label>
             Rarity

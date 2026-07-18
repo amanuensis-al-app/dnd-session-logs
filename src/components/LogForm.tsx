@@ -26,10 +26,9 @@ import {
 } from '../types';
 import { CREATION_BACKGROUNDS, CREATION_CLASSES, ITEM_CATALOG } from '../catalog';
 import type { CreationOption } from '../catalog';
-import type { KnownMagicItem } from '../data/magicItems';
+import { MagicItemNameField } from './MagicItemNameField';
 import { formatGp, sortLogs } from '../derive';
 import { costForSpellLevel, rarityForSpellLevel, type SpellDefinition } from '../spells';
-import { MagicItemPicker } from './MagicItemPicker';
 import { SpellScrollPicker } from './SpellScrollPicker';
 
 interface Props {
@@ -142,68 +141,6 @@ function ComboInput({
         ),
       )}
     </select>
-  );
-}
-
-/**
- * Magic-item name cell with two ways to fill the name (owner request 2026-07-19):
- * "✏️ Input manually" — free text, like Equipment's manual input — or "📋 Pick from
- * List", a search modal over the 5e.tools items list that also fills rarity and the
- * attunement requirement. Rows start in "choose" mode when the name is blank (new
- * row), in "manual" mode when it isn't (editing a log, prefilled import); the pick
- * lands in manual mode so the name stays editable afterwards.
- */
-function MagicItemNameField({
-  value,
-  onChangeName,
-  onPick,
-}: {
-  value: string;
-  onChangeName: (name: string) => void;
-  onPick: (item: KnownMagicItem) => void;
-}) {
-  const [mode, setMode] = useState<'choose' | 'manual'>(() => (value.trim() ? 'manual' : 'choose'));
-  const [picking, setPicking] = useState(false);
-
-  if (mode === 'manual') {
-    return (
-      <span className="combo">
-        <input
-          value={value}
-          onChange={(e) => onChangeName(e.target.value)}
-          placeholder="item name *"
-        />
-        <button
-          type="button"
-          className="btn btn-ghost btn-small"
-          title="Pick from the magic items list instead"
-          onClick={() => setMode('choose')}
-        >
-          ▾
-        </button>
-      </span>
-    );
-  }
-
-  return (
-    <span className="magic-name-choose">
-      <button type="button" className="btn btn-ghost btn-small" onClick={() => setMode('manual')}>
-        ✏️ Input manually
-      </button>
-      <button type="button" className="btn btn-ghost btn-small" onClick={() => setPicking(true)}>
-        📋 Pick from List
-      </button>
-      {picking && (
-        <MagicItemPicker
-          onClose={() => setPicking(false)}
-          onPick={(item) => {
-            setPicking(false);
-            setMode('manual');
-            onPick(item);
-          }}
-        />
-      )}
-    </span>
   );
 }
 
@@ -1101,7 +1038,7 @@ export function LogForm({
 
           <fieldset className="log-form-items log-form-trade-side">
             <legend>↓ Received</legend>
-            <div className="trade-name-field">
+            <div className="field-stack">
               <span>Magic item *</span>
               <MagicItemNameField
                 value={tradeGainedName}

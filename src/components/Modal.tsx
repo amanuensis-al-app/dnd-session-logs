@@ -1,5 +1,10 @@
 import { useEffect, type ReactNode } from 'react';
 
+/** Open modals in mount order — Escape and the backdrop close only the topmost one,
+ * so a picker opened INSIDE another modal (e.g. the magic-item picker from the
+ * inventory item editor) doesn't take the parent down with it. */
+const openModals: (() => void)[] = [];
+
 /** Centered dialog over a dimmed backdrop. Closes on Escape or backdrop click. */
 export function Modal({
   title,
@@ -14,11 +19,16 @@ export function Modal({
   children: ReactNode;
 }) {
   useEffect(() => {
+    openModals.push(onClose);
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && openModals[openModals.length - 1] === onClose) onClose();
     }
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      const i = openModals.indexOf(onClose);
+      if (i !== -1) openModals.splice(i, 1);
+      window.removeEventListener('keydown', onKey);
+    };
   }, [onClose]);
 
   return (

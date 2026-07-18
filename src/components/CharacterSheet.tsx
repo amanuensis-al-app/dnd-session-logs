@@ -9,6 +9,7 @@ import { LogForm } from './LogForm';
 import { AddLogFromText } from './AddLogFromText';
 import { CharacterAvatar } from './CharacterAvatar';
 import { AvatarEditor } from './AvatarEditor';
+import { CharacterReport } from './CharacterReport';
 import type { ItemEditChanges } from './ItemEditModal';
 
 /** 'new' = adding, LogEntry = editing that log, prefill = new log parsed from
@@ -39,6 +40,7 @@ export function CharacterSheet({
   const [tab, setTab] = useState<'inventory' | 'prep' | 'logs'>('inventory');
   const [logDraft, setLogDraft] = useState<LogDraftState>(null);
   const [showTextImport, setShowTextImport] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editingIcon, setEditingIcon] = useState(false);
   const [name, setName] = useState(character.name);
@@ -74,6 +76,15 @@ export function CharacterSheet({
     if (state) attunement[itemId] = state;
     else delete attunement[itemId];
     onSaveCharacter({ ...character, attunement });
+  }
+
+  /** Sets how many units of an equipped consumable stack are prepped — Prep's
+   * quantity picker; undefined = the whole stack (kept sparse). */
+  function setEquipQuantity(itemId: string, quantity: number | undefined) {
+    const equipQuantities = { ...character.equipQuantities };
+    if (quantity !== undefined) equipQuantities[itemId] = quantity;
+    else delete equipQuantities[itemId];
+    onSaveCharacter({ ...character, equipQuantities });
   }
 
   /** Saves Inventory-tab item edits. A non-stacked item lives in exactly one log, so
@@ -260,6 +271,13 @@ export function CharacterSheet({
         <div className="sheet-toolbar-actions">
           <button
             className="btn"
+            title="Printable report of Prep, Inventory and all logs — save as PDF for your DM"
+            onClick={() => setShowReport(true)}
+          >
+            Export PDF
+          </button>
+          <button
+            className="btn"
             title="Paste a session write-up (e.g. from Discord) and get the form prefilled"
             onClick={() => setShowTextImport(true)}
           >
@@ -286,6 +304,15 @@ export function CharacterSheet({
             setLogDraft({ prefill: log, warnings });
             setTab('logs');
           }}
+        />
+      )}
+
+      {showReport && (
+        <CharacterReport
+          character={character}
+          derived={derived}
+          logs={characterLogs}
+          onClose={() => setShowReport(false)}
         />
       )}
 
@@ -350,6 +377,7 @@ export function CharacterSheet({
                 derived={derived}
                 onToggleMark={toggleItemMark}
                 onSetAttunement={setItemAttunement}
+                onSetEquipQuantity={setEquipQuantity}
               />
             )}
             {/* Always mounted (hidden off the Logs tab) so an in-place edit form's

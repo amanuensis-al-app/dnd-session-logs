@@ -1,4 +1,4 @@
-import type { Character, DerivedStats, InventoryItem, LogEntry } from './types';
+import type { Character, DerivedStats, InventoryItem, LogEntry, LossReason } from './types';
 import { STACKED_CATEGORIES, stackedItemId } from './types';
 
 /** Replay order: by date, then time (blank = 00:00), ties broken by creation time. */
@@ -104,4 +104,27 @@ export function formatGp(value: number): string {
   return (Math.round(value * 100) / 100).toLocaleString(undefined, {
     maximumFractionDigits: 2,
   });
+}
+
+/**
+ * One display line per lost item name + reason. A stack loss is stored split across
+ * the gained-item instances it drew from (FIFO); readers only care about the total.
+ */
+export function groupedLosses(
+  log: LogEntry,
+  itemNameById: Map<string, string>,
+): { name: string; reason: LossReason; quantity: number }[] {
+  const rows: { name: string; reason: LossReason; quantity: number }[] = [];
+  const index = new Map<string, number>();
+  for (const loss of log.itemsLost) {
+    const name = itemNameById.get(loss.itemId) ?? '(deleted item)';
+    const key = `${name}|${loss.reason}`;
+    const at = index.get(key);
+    if (at != null) rows[at].quantity += loss.quantity;
+    else {
+      index.set(key, rows.length);
+      rows.push({ name, reason: loss.reason, quantity: loss.quantity });
+    }
+  }
+  return rows;
 }

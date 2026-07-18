@@ -1,29 +1,7 @@
-import type { DerivedStats, LogEntry, LogType, LossReason } from '../types';
+import { useEffect, useState } from 'react';
+import type { DerivedStats, LogEntry, LogType } from '../types';
 import { CATEGORY_LABELS_SINGULAR, LOG_TYPE_LABELS, LOSS_REASON_LABELS } from '../types';
-import { formatGp } from '../derive';
-
-/**
- * One display line per lost item name + reason. A stack loss is stored split across
- * the gained-item instances it drew from (FIFO); readers only care about the total.
- */
-function groupedLosses(
-  log: LogEntry,
-  itemNameById: Map<string, string>,
-): { name: string; reason: LossReason; quantity: number }[] {
-  const rows: { name: string; reason: LossReason; quantity: number }[] = [];
-  const index = new Map<string, number>();
-  for (const loss of log.itemsLost) {
-    const name = itemNameById.get(loss.itemId) ?? '(deleted item)';
-    const key = `${name}|${loss.reason}`;
-    const at = index.get(key);
-    if (at != null) rows[at].quantity += loss.quantity;
-    else {
-      index.set(key, rows.length);
-      rows.push({ name, reason: loss.reason, quantity: loss.quantity });
-    }
-  }
-  return rows;
-}
+import { formatGp, groupedLosses } from '../derive';
 
 interface Props {
   /** Already filtered to one character and sorted in replay order. */
@@ -46,6 +24,10 @@ const TYPE_BADGE: Record<LogType, string> = {
   free: 'badge-free',
 };
 
+/** Logs shown per page — everything is in memory anyway; this is about not
+ * rendering hundreds of cards at once on slow machines. */
+const PAGE_SIZE = 30;
+
 export function LogHistory({
   logs,
   derived,
@@ -54,6 +36,20 @@ export function LogHistory({
   onEditLog,
   onDeleteLog,
 }: Props) {
+  // Pagination: 30 cards per page — all logs are in memory anyway, this is about
+  // not rendering hundreds of cards at once on slow machines.
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(logs.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1);
+
+  // The edit form replaces a log's card in place — jump to the page holding it,
+  // or the form would be invisible on another page.
+  useEffect(() => {
+    if (!editingLogId) return;
+    const idx = logs.findIndex((l) => l.id === editingLogId);
+    if (idx !== -1) setPage(Math.floor((logs.length - 1 - idx) / PAGE_SIZE));
+  }, [editingLogId, logs]);
+
   if (logs.length === 0) {
     return (
       <div className="empty-state">
@@ -80,10 +76,34 @@ export function LogHistory({
 
   // Newest first for reading; derivation always uses replay order internally.
   const display = [...logs].reverse();
+  const pageLogs = display.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+
+  const pager = pageCount > 1 && (
+    <div className="log-pager">
+      <button
+        className="btn btn-ghost btn-small"
+        disabled={currentPage === 0}
+        onClick={() => setPage(currentPage - 1)}
+      >
+        ← Newer
+      </button>
+      <span className="muted">
+        Page {currentPage + 1} of {pageCount} · {logs.length} logs
+      </span>
+      <button
+        className="btn btn-ghost btn-small"
+        disabled={currentPage >= pageCount - 1}
+        onClick={() => setPage(currentPage + 1)}
+      >
+        Older →
+      </button>
+    </div>
+  );
 
   return (
     <div className="log-history">
-      {display.map((log) =>
+      {pager}
+      {pageLogs.map((log) =>
         log.id === editingLogId && editForm ? (
           /* Keep the entry's card header while the edit form replaces its body. */
           <article key={log.id} className="card log-entry log-entry-editing">
@@ -191,6 +211,7 @@ export function LogHistory({
         </article>
         ),
       )}
+      {pager}
     </div>
   );
 }

@@ -11,15 +11,17 @@ export function tierForLevel(level: number): Tier {
 }
 
 /**
- * The six "carry slot" pools the Prep tab enforces, each capped independently by
+ * The seven "carry slot" pools the Prep tab enforces, each capped independently by
  * tier (owner-supplied AL tables, 2026-07-18). Magic items split by rarity —
  * Uncommon+ (uncommon/rare/very rare/legendary/artifact) vs Common — everything else
- * is one pool per category.
+ * is one pool per category. Equipment (added 2026-07-19) has NO cap: mundane gear
+ * is only limited by weight, which this tracker doesn't compute.
  */
 export type PrepPool =
   | 'magicItemUncommonPlus'
   | 'magicItemCommon'
   | 'consumable'
+  | 'equipment'
   | 'blessing'
   | 'charm'
   | 'boon';
@@ -29,6 +31,7 @@ export const PREP_POOL_ORDER: PrepPool[] = [
   'magicItemUncommonPlus',
   'magicItemCommon',
   'consumable',
+  'equipment',
   'blessing',
   'charm',
   'boon',
@@ -38,25 +41,27 @@ export const PREP_POOL_LABELS: Record<PrepPool, string> = {
   magicItemUncommonPlus: 'Magic Items (Uncommon+)',
   magicItemCommon: 'Magic Items (Common)',
   consumable: 'Consumables',
+  equipment: 'Equipment',
   blessing: 'Blessings',
   charm: 'Charms',
   boon: 'Boons',
 };
 
 const TIER_LIMITS: Record<Tier, Record<PrepPool, number>> = {
-  1: { magicItemUncommonPlus: 1, magicItemCommon: 5, consumable: 5, blessing: 1, charm: 2, boon: 0 },
-  2: { magicItemUncommonPlus: 3, magicItemCommon: 5, consumable: 10, blessing: 1, charm: 5, boon: 0 },
-  3: { magicItemUncommonPlus: 6, magicItemCommon: 5, consumable: 10, blessing: 1, charm: 5, boon: 0 },
-  4: { magicItemUncommonPlus: 10, magicItemCommon: 5, consumable: 15, blessing: 1, charm: 5, boon: 1 },
+  1: { magicItemUncommonPlus: 1, magicItemCommon: 5, consumable: 5, equipment: Infinity, blessing: 1, charm: 2, boon: 0 },
+  2: { magicItemUncommonPlus: 3, magicItemCommon: 5, consumable: 10, equipment: Infinity, blessing: 1, charm: 5, boon: 0 },
+  3: { magicItemUncommonPlus: 6, magicItemCommon: 5, consumable: 10, equipment: Infinity, blessing: 1, charm: 5, boon: 0 },
+  4: { magicItemUncommonPlus: 10, magicItemCommon: 5, consumable: 15, equipment: Infinity, blessing: 1, charm: 5, boon: 1 },
 };
 
+/** Slots allowed per pool. `Infinity` means the pool is uncapped (Equipment). */
 export function prepLimit(tier: Tier, pool: PrepPool): number {
   return TIER_LIMITS[tier][pool];
 }
 
 /**
  * Which Prep pool an equippable item belongs to, or undefined for a category Prep
- * doesn't track (Equipment/Story Awards — see EQUIPPABLE_CATEGORIES, checked by the
+ * doesn't track (Story Awards — see EQUIPPABLE_CATEGORIES, checked by the
  * caller). A magic item with no rarity set lands in Uncommon+, the more restrictive
  * pool: every magic item created in-app has a rarity by default (LogForm defaults
  * new gains to 'uncommon'), so a blank one is old/imported data worth flagging by
@@ -68,6 +73,8 @@ export function prepPoolOf(category: ItemCategory, rarity: Rarity | undefined): 
       return rarity === 'common' ? 'magicItemCommon' : 'magicItemUncommonPlus';
     case 'consumable':
       return 'consumable';
+    case 'equipment':
+      return 'equipment';
     case 'blessing':
       return 'blessing';
     case 'charm':
