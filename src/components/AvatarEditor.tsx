@@ -6,7 +6,6 @@ const VIEWPORT = 240;
 /** Saved image never exceeds this — downscaled if the crop is bigger, kept native
  * resolution (no upscaling) if smaller. */
 const MAX_OUTPUT = 256;
-const MAX_ZOOM = 4;
 
 interface Offset {
   x: number;
@@ -34,6 +33,13 @@ export function AvatarEditor({ onSave, onClose }: Props) {
   const baseScale = (image: HTMLImageElement) =>
     Math.max(VIEWPORT / image.naturalWidth, VIEWPORT / image.naturalHeight);
   const currentScale = (image: HTMLImageElement) => baseScale(image) * zoom;
+
+  /** The most zoom worth offering (owner rule 2026-07-19, replacing an arbitrary
+   * 4× cap): the point where the crop window captures exactly MAX_OUTPUT source
+   * pixels — past it the saved image would only drop below 256px. At least 1× so
+   * small images (already sub-256 at cover) keep their full range. */
+  const maxZoom = (image: HTMLImageElement) =>
+    Math.max(1, VIEWPORT / (MAX_OUTPUT * baseScale(image)));
 
   /** Keeps the image edges from ever pulling inside the crop window. */
   function clamp(image: HTMLImageElement, next: Offset, s: number): Offset {
@@ -166,7 +172,7 @@ export function AvatarEditor({ onSave, onClose }: Props) {
             <input
               type="range"
               min={1}
-              max={MAX_ZOOM}
+              max={maxZoom(img)}
               step={0.01}
               value={zoom}
               onChange={(e) => changeZoom(Number(e.target.value))}
