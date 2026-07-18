@@ -1,9 +1,13 @@
 import type { ItemCategory, Rarity } from './types';
 
-export type Tier = 1 | 2 | 3 | 4;
+export type Tier = 0 | 1 | 2 | 3 | 4;
 
-/** AL character tier from level: T1 1–4, T2 5–10, T3 11–16, T4 17–20. */
+/** AL character tier from level: T1 3–4, T2 5–10, T3 11–16, T4 17–20. Levels 1–2
+ * are a "hidden" Tier 0 (owner rule 2026-07-19): not an official AL tier — it
+ * exists so brand-new characters read differently on the list (grey border) — and
+ * it inherits T1's Prep limits. */
 export function tierForLevel(level: number): Tier {
+  if (level <= 2) return 0;
   if (level <= 4) return 1;
   if (level <= 10) return 2;
   if (level <= 16) return 3;
@@ -48,6 +52,7 @@ export const PREP_POOL_LABELS: Record<PrepPool, string> = {
 };
 
 const TIER_LIMITS: Record<Tier, Record<PrepPool, number>> = {
+  0: { magicItemUncommonPlus: 1, magicItemCommon: 5, consumable: 5, equipment: Infinity, blessing: 1, charm: 2, boon: 0 },
   1: { magicItemUncommonPlus: 1, magicItemCommon: 5, consumable: 5, equipment: Infinity, blessing: 1, charm: 2, boon: 0 },
   2: { magicItemUncommonPlus: 3, magicItemCommon: 5, consumable: 10, equipment: Infinity, blessing: 1, charm: 5, boon: 0 },
   3: { magicItemUncommonPlus: 6, magicItemCommon: 5, consumable: 10, equipment: Infinity, blessing: 1, charm: 5, boon: 0 },

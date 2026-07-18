@@ -3,6 +3,7 @@ import type { Character, DerivedStats, LogEntry, LogType } from '../types';
 import { LOG_TYPE_LABELS, newId } from '../types';
 import { deriveCharacter, formatGp } from '../derive';
 import { importAlLog, type AlImportResult } from '../importAlLog';
+import { tierForLevel } from '../tiers';
 import { Modal } from './Modal';
 import { CharacterAvatar } from './CharacterAvatar';
 import { ImportLogSheet } from './ImportLogSheet';
@@ -82,6 +83,13 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
       map.set(log.type, (map.get(log.type) ?? 0) + 1);
       return map;
     }, new Map<LogType, number>());
+
+  // Highest level first, then name (the props come in creation order).
+  const sorted = [...characters].sort(
+    (a, b) =>
+      (derivedByCharacter.get(b.id)?.level ?? 1) - (derivedByCharacter.get(a.id)?.level ?? 1) ||
+      a.name.localeCompare(b.name),
+  );
 
   return (
     <div className="character-list">
@@ -175,10 +183,14 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
         </div>
       ) : (
         <div className="character-grid">
-          {characters.map((c) => {
+          {sorted.map((c) => {
             const d = derivedByCharacter.get(c.id)!;
             return (
-              <button key={c.id} className="card character-card" onClick={() => onOpen(c.id)}>
+              <button
+                key={c.id}
+                className={`card character-card tier-${tierForLevel(d.level)}`}
+                onClick={() => onOpen(c.id)}
+              >
                 <div className="character-card-header">
                   <CharacterAvatar character={c} size={48} />
                   <div>

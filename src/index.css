@@ -284,11 +284,59 @@ textarea:focus {
   cursor: pointer;
   font-family: inherit;
   color: var(--text);
-  transition: border-color 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .character-card:hover {
   border-color: var(--accent);
+}
+
+/* Tier-colored card borders on the character list (colors echo the rarity scale;
+ * the glow strengthens with tier). Placed after the generic hover rule so the
+ * tier color holds even on hover — the hover just brightens the glow. Tier 0 is
+ * the "hidden" level 1–2 tier (grey, like common rarity). */
+.character-card.tier-0 {
+  border-color: #9c9c9c;
+  box-shadow: 0 0 3px rgba(156, 156, 156, 0.14);
+}
+.character-card.tier-1 {
+  border-color: #7bbf7e;
+  box-shadow: 0 0 4px rgba(123, 191, 126, 0.18);
+}
+.character-card.tier-2 {
+  border-color: #6fa8dc;
+  box-shadow: 0 0 7px rgba(111, 168, 220, 0.28);
+}
+.character-card.tier-3 {
+  border-color: #b89aeb;
+  box-shadow: 0 0 10px rgba(184, 154, 235, 0.38);
+}
+.character-card.tier-4 {
+  border-color: #e8975a;
+  box-shadow: 0 0 14px rgba(232, 151, 90, 0.48);
+}
+
+.character-card.tier-0:hover {
+  border-color: #9c9c9c;
+  box-shadow: 0 0 7px rgba(156, 156, 156, 0.28);
+}
+.character-card.tier-1:hover {
+  border-color: #7bbf7e;
+  box-shadow: 0 0 9px rgba(123, 191, 126, 0.35);
+}
+.character-card.tier-2:hover {
+  border-color: #6fa8dc;
+  box-shadow: 0 0 12px rgba(111, 168, 220, 0.45);
+}
+.character-card.tier-3:hover {
+  border-color: #b89aeb;
+  box-shadow: 0 0 16px rgba(184, 154, 235, 0.55);
+}
+.character-card.tier-4:hover {
+  border-color: #e8975a;
+  box-shadow: 0 0 22px rgba(232, 151, 90, 0.65);
 }
 
 .character-card-header {
