@@ -68,6 +68,16 @@ export function LogHistory({
 
   const itemNameById = new Map(derived.allItems.map((i) => [i.id, i.name]));
 
+  // Level after each log, computed in REPLAY order (level starts at 1) even though
+  // the list shows newest first — displayed next to the level delta on logs that
+  // change level.
+  const levelAfterByLogId = new Map<string, number>();
+  let runningLevel = 1;
+  for (const log of logs) {
+    runningLevel += log.levelGained || 0;
+    levelAfterByLogId.set(log.id, runningLevel);
+  }
+
   // Newest first for reading; derivation always uses replay order internally.
   const display = [...logs].reverse();
 
@@ -138,6 +148,7 @@ export function LogHistory({
                 <span className="delta delta-gain">
                   {log.levelGained > 0 ? '+' : ''}
                   {log.levelGained} level{Math.abs(log.levelGained) !== 1 ? 's' : ''}
+                  <span className="muted"> → {levelAfterByLogId.get(log.id)}</span>
                 </span>
               )}
               {log.gpGained > 0 && <span className="delta delta-gain">+{formatGp(log.gpGained)} gp</span>}

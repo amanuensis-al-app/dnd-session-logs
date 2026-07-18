@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { AttunementState, Character, DerivedStats, InventoryItem, LogEntry } from '../types';
+import { STACKED_CATEGORIES, stackedItemId } from '../types';
 import { formatGp, knownValues, logsForCharacter } from '../derive';
 import { Inventory } from './Inventory';
 import { Prep } from './Prep';
@@ -8,6 +9,7 @@ import { LogForm } from './LogForm';
 import { AddLogFromText } from './AddLogFromText';
 import { CharacterAvatar } from './CharacterAvatar';
 import { AvatarEditor } from './AvatarEditor';
+import type { ItemEditChanges } from './ItemEditModal';
 
 /** 'new' = adding, LogEntry = editing that log, prefill = new log parsed from
  * pasted text (with review warnings), null = form closed. */
@@ -74,16 +76,51 @@ export function CharacterSheet({
     onSaveCharacter({ ...character, attunement });
   }
 
-  /** Requires-attunement is a property of the item itself, so it is written back to
-   * the gain in the item's source log (magic items are non-stacked: the id lives in
-   * exactly one log). The derived inventory re-reads it on the next render. */
-  function setItemRequiresAttunement(item: InventoryItem, requiresAttunement: boolean) {
+  /** Saves Inventory-tab item edits. A non-stacked item lives in exactly one log, so
+   * the gain is rewritten there. A stacked item's id is content-derived from
+   * category+name+rarity and shared by many logs, so renaming means rewriting every
+   * gain AND every loss reference to the new stack id — and moving the equip mark,
+   * which is keyed by the old id. */
+  function editItem(item: InventoryItem, changes: ItemEditChanges) {
+    if (STACKED_CATEGORIES.includes(item.category)) {
+      const id = stackedItemId({ category: item.category, name: changes.name, rarity: changes.rarity });
+      for (const log of logs.filter((l) => l.characterId === character.id)) {
+        const itemsGained = log.itemsGained.map((g) =>
+          g.id === item.id ? { ...g, id, name: changes.name, rarity: changes.rarity } : g,
+        );
+        const itemsLost = log.itemsLost.map((l) =>
+          l.itemId === item.id ? { ...l, itemId: id } : l,
+        );
+        if (
+          itemsGained.some((g, i) => g !== log.itemsGained[i]) ||
+          itemsLost.some((l, i) => l !== log.itemsLost[i])
+        ) {
+          onSaveLog({ ...log, itemsGained, itemsLost });
+        }
+      }
+      if (id !== item.id && character.itemMarks?.[item.id]) {
+        const itemMarks = { ...character.itemMarks };
+        delete itemMarks[item.id];
+        itemMarks[id] = 'equipped';
+        onSaveCharacter({ ...character, itemMarks });
+      }
+      return;
+    }
     const source = logs.find((l) => l.id === item.sourceLogId);
     if (!source) return;
     onSaveLog({
       ...source,
       itemsGained: source.itemsGained.map((g) =>
-        g.id === item.id ? { ...g, requiresAttunement } : g,
+        g.id === item.id
+          ? {
+              ...g,
+              name: changes.name,
+              rarity: changes.rarity,
+              description: changes.description,
+              minorProperty: changes.minorProperty,
+              requiresAttunement: changes.requiresAttunement,
+            }
+          : g,
       ),
     });
   }
@@ -304,7 +341,7 @@ export function CharacterSheet({
                 character={character}
                 derived={derived}
                 onToggleMark={toggleItemMark}
-                onSetRequiresAttunement={setItemRequiresAttunement}
+                onEditItem={editItem}
               />
             )}
             {tab === 'prep' && (

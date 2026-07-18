@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Character, DerivedStats, InventoryItem, ItemCategory, Rarity } from '../types';
 import {
   CATEGORY_LABELS,
@@ -6,18 +7,20 @@ import {
   RARITIES,
   STACKED_CATEGORIES,
 } from '../types';
+import { ItemEditModal, type ItemEditChanges } from './ItemEditModal';
 
 interface Props {
   character: Character;
   derived: DerivedStats;
   /** Toggles an item's equipped mark on/off. */
   onToggleMark: (itemId: string) => void;
-  /** Sets whether a magic item requires attunement — a property of the item itself,
-   * written back to its source log. */
-  onSetRequiresAttunement: (item: InventoryItem, requiresAttunement: boolean) => void;
+  /** Saves edits to an item (name/rarity/description/minor property/attunement) —
+   * written back to its source log(s). */
+  onEditItem: (item: InventoryItem, changes: ItemEditChanges) => void;
 }
 
-export function Inventory({ character, derived, onToggleMark, onSetRequiresAttunement }: Props) {
+export function Inventory({ character, derived, onToggleMark, onEditItem }: Props) {
+  const [editing, setEditing] = useState<InventoryItem | null>(null);
   // remaining < 0 means more was lost/used than ever gained — an invalid log somewhere.
   // Show those with a warning instead of hiding them, so the user can find and fix it.
   const visibleItems = derived.allItems.filter((i) => i.remaining !== 0);
@@ -80,19 +83,6 @@ export function Inventory({ character, derived, onToggleMark, onSetRequiresAttun
                         ) : null}
                       </span>
                       {item.rarity && <span className={`rarity rarity-${item.rarity.replace(' ', '-')}`}>{item.rarity}</span>}
-                      {item.category === 'magic_item' && (
-                        <select
-                          className={`attune-select${(item.requiresAttunement ?? true) ? '' : ' attune-not-required'}`}
-                          title="Whether this item requires attunement"
-                          value={(item.requiresAttunement ?? true) ? 'required' : 'not-required'}
-                          onChange={(e) =>
-                            onSetRequiresAttunement(item, e.target.value === 'required')
-                          }
-                        >
-                          <option value="required">Requires Attunement</option>
-                          <option value="not-required">Attunement Not Required</option>
-                        </select>
-                      )}
                       {item.remaining > 0 && equippable && (
                         <button
                           className={`equip-toggle${marked ? ' mark-equipped' : ''}`}
@@ -102,6 +92,13 @@ export function Inventory({ character, derived, onToggleMark, onSetRequiresAttun
                           ⚔️
                         </button>
                       )}
+                      <button
+                        className="btn btn-ghost btn-small"
+                        title="Edit this item"
+                        onClick={() => setEditing(item)}
+                      >
+                        ✎
+                      </button>
                     </div>
                     {item.remaining < 0 && (
                       <div className="warning inventory-item-warning">
@@ -123,6 +120,16 @@ export function Inventory({ character, derived, onToggleMark, onSetRequiresAttun
           </section>
         );
       })}
+      {editing && (
+        <ItemEditModal
+          item={editing}
+          onClose={() => setEditing(null)}
+          onSave={(changes) => {
+            onEditItem(editing, changes);
+            setEditing(null);
+          }}
+        />
+      )}
     </div>
   );
 }
