@@ -1101,14 +1101,19 @@ export function LogForm({
 
           <fieldset className="log-form-items log-form-trade-side">
             <legend>↓ Received</legend>
-            <label>
-              Magic item *
-              <input
+            <div className="trade-name-field">
+              <span>Magic item *</span>
+              <MagicItemNameField
                 value={tradeGainedName}
-                onChange={(e) => setTradeGainedName(e.target.value)}
-                placeholder="name of the item you got"
+                onChangeName={setTradeGainedName}
+                onPick={(item) => {
+                  setTradeGainedName(item.name);
+                  setTradeGainedRequiresAttunement(item.requiresAttunement);
+                  // Rarity deliberately untouched: a trade keeps the rarity of the
+                  // item given away (see the note below the fields).
+                }}
               />
-            </label>
+            </div>
             <div className="form-grid">
               <label>
                 Minor property

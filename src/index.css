@@ -776,6 +776,16 @@ textarea:focus {
   color: var(--gain);
 }
 
+/* The trade-received magic-item field holds the Input-manually/Pick-from-List
+   control, which a real <label> can't wrap — this mimics the label layout. */
+.trade-name-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
 .log-form-trade-note {
   margin: 0.4rem 0 0;
 }
