@@ -89,14 +89,14 @@ export function parseCsv(text: string): string[][] {
 
 // ---- Small parsing helpers ------------------------------------------------------
 
-function num(value: string | undefined): number {
+export function num(value: string | undefined): number {
   const n = parseFloat((value ?? '').trim());
   return Number.isFinite(n) ? n : 0;
 }
 
 /** "2025-02-22 12:00:00 UTC" → { date: '2025-02-22', time: '12:00' }. Taken verbatim
  * (no timezone conversion) so log order matches what the AL Log site shows. */
-function parseDateTime(value: string): { date: string; time?: string } | null {
+export function parseDateTime(value: string): { date: string; time?: string } | null {
   const m = value.trim().match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})/);
   if (m) return { date: m[1], time: `${m[2]}:${m[3]}` };
   const dateOnly = value.trim().match(/^(\d{4}-\d{2}-\d{2})/);

@@ -228,6 +228,84 @@ try {
   console.log(`\nwarnings (${warnings.length}):`);
   for (const w of warnings) console.log(`  - ${w}`);
 
+  // ---- Gold/XP cross-check: the 2026-07-19 Gemini failure mode ----------------------
+  // A session's gp_gained (preceded by three EMPTY columns) got filed as "XP gained"
+  // notes lines, leaving gpGained 0. The cross-check must flag exactly that entry —
+  // and stay quiet for a correct reply, including a purchase+sell split (same
+  // timestamp) and a catchup (negative downtime).
+  const miniCsv = [
+    'name,race,class_and_levels,faction,background,lifestyle,portrait_url,publicly_visible',
+    'Melfyn,Eladrin,Bard,,"",,,',
+    'type,adventure_title,session_num,date_played,session_length_hours,player_level,xp_gained,gp_gained,downtime_gained,renown_gained,num_secret_missions,location_played,dm_name,dm_dci_number,notes,date_dmed,campaign_id',
+    'MAGIC ITEM,name,rarity,location_found,table,table_result,notes',
+    'CharacterLogEntry,Big Reward,,2024-10-11 19:30:00 UTC,,,,2116.98,10.0,,,Cafe,Kaith,@dm,"",,',
+    'MAGIC ITEM,,common,,,,""',
+    'PurchaseLogEntry,,,2024-10-12 10:00:00 UTC,,,,-5.0,,,,,,,* Shield - 10GP; * Sell back Longsword = 5GP,,',
+    'MAGIC ITEM,,common,,,,""',
+    'CharacterLogEntry,Catch Up,,2024-10-13 01:04:00 UTC,,,,,-30.0,,,"","","","",,',
+  ].join('\n');
+
+  const purchaseSellLogs = [
+    {
+      type: 'purchase', date: '2024-10-12', time: '10:00', title: 'Bought Shield',
+      gpLost: 10,
+      itemsGained: [{ name: 'Shield', category: 'equipment', quantity: 1, cost: 10 }],
+    },
+    {
+      type: 'sell', date: '2024-10-12', time: '10:00', title: 'Sold Longsword',
+      gpGained: 5,
+      itemsLost: [{ name: 'Longsword', quantity: 1, reason: 'sold', salePrice: 5 }],
+    },
+  ];
+  const catchupLog = {
+    type: 'catchup', date: '2024-10-13', time: '01:04', title: 'Catch Up',
+    downtimeSpent: 30, levelGained: 3,
+  };
+
+  const geminiStyle = parseAlChatbotReply(
+    JSON.stringify({
+      character: { name: 'Melfyn' },
+      logs: [
+        {
+          type: 'session', date: '2024-10-11', time: '19:30', title: 'Big Reward',
+          location: 'Cafe', dm: 'Kaith', downtimeGained: 10, levelGained: 1,
+          notes: 'DM DCI: @dm\nXP gained: 2116.98',
+        },
+        ...purchaseSellLogs,
+        catchupLog,
+      ],
+    }),
+    miniCsv,
+  );
+  const gpWarnings = (w) => w.filter((x) => x.includes('net to'));
+  check(
+    'GP-as-XP reply flagged (exactly the session, with both amounts)',
+    gpWarnings(geminiStyle.warnings).length === 1 &&
+      gpWarnings(geminiStyle.warnings)[0].includes('2116.98') &&
+      gpWarnings(geminiStyle.warnings)[0].includes('Big Reward'),
+    gpWarnings(geminiStyle.warnings).join(' / ') || '(none)',
+  );
+
+  const correctReply = parseAlChatbotReply(
+    JSON.stringify({
+      character: { name: 'Melfyn' },
+      logs: [
+        {
+          type: 'session', date: '2024-10-11', time: '19:30', title: 'Big Reward',
+          location: 'Cafe', dm: 'Kaith', gpGained: 2116.98, downtimeGained: 10, levelGained: 1,
+        },
+        ...purchaseSellLogs,
+        catchupLog,
+      ],
+    }),
+    miniCsv,
+  );
+  check(
+    'correct reply: no gold/downtime warnings (split + catchup tolerated)',
+    gpWarnings(correctReply.warnings).length === 0,
+    gpWarnings(correctReply.warnings).join(' / '),
+  );
+
   // ---- Misc: prompt builds and embeds the CSV; fallback name from CSV --------------
   check('prompt embeds the CSV', buildAlChatbotPrompt(csv).includes('DDL4-02 The Beast'));
   const nameless = parseAlChatbotReply('{"character": {}, "logs": []}', csv);
