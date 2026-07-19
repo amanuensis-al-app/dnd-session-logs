@@ -123,6 +123,7 @@ const NAME_ALIASES: Record<string, string> = {
   potionofgreaterhealing: 'Potion of Healing (Greater)',
   potionofsuperiorhealing: 'Potion of Healing (Superior)',
   potionofsupremehealing: 'Potion of Healing (Supreme)',
+  studdedleather: 'Studded Leather Armor',
 };
 
 const catalogByKey: Map<string, { item: CatalogItem; category: ItemCategory }> = (() => {

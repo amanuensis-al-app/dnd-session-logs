@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import type { Character, DerivedStats, LogEntry, LogType } from '../types';
 import { LOG_TYPE_LABELS, newId } from '../types';
 import { deriveCharacter, formatGp } from '../derive';
-import { importAlLog, type AlImportResult } from '../importAlLog';
+import type { AlImportResult } from '../importAlLog';
 import { prepareBackupImport, type BackupImportResult } from '../importBackup';
 import { validateBundle } from '../db';
 import { tierForLevel } from '../tiers';
 import { Modal } from './Modal';
 import { CharacterAvatar } from './CharacterAvatar';
 import { GpAmount } from './GpAmount';
+import { ImportAlLog } from './ImportAlLog';
 import { ImportLogSheet } from './ImportLogSheet';
 
 interface Props {
@@ -35,6 +36,8 @@ export function CharacterList({
   const [species, setSpecies] = useState('');
   const [charClass, setCharClass] = useState('');
   const [importPreview, setImportPreview] = useState<{ title: string; result: AlImportResult } | null>(null);
+  /** AL-log file waiting in the engine-chooser modal (Quick Import vs AI chatbot). */
+  const [alImport, setAlImport] = useState<{ csvText: string; fileName: string } | null>(null);
   /** Log-sheet file waiting in the engine-chooser modal (Quick Import vs AI chatbot). */
   const [sheetImport, setSheetImport] = useState<{ csvText: string; fileName: string } | null>(null);
   const [backupImportPreview, setBackupImportPreview] = useState<BackupImportResult | null>(null);
@@ -79,10 +82,10 @@ export function CharacterList({
   async function handleImportFile(file: File) {
     try {
       const text = await file.text();
+      // Both CSV kinds get an engine choice first (offline parser vs AI chatbot).
       if (importKindRef.current === 'al') {
-        setImportPreview({ title: 'Import from Adventurers League Log', result: importAlLog(text) });
+        setAlImport({ csvText: text, fileName: file.name });
       } else {
-        // The log sheet gets an engine choice first (offline parser vs AI chatbot).
         setSheetImport({ csvText: text, fileName: file.name });
       }
     } catch (err) {
@@ -263,6 +266,18 @@ export function CharacterList({
             );
           })}
         </div>
+      )}
+
+      {alImport && (
+        <ImportAlLog
+          csvText={alImport.csvText}
+          fileName={alImport.fileName}
+          onClose={() => setAlImport(null)}
+          onResult={(result) => {
+            setAlImport(null);
+            setImportPreview({ title: 'Import from Adventurers League Log', result });
+          }}
+        />
       )}
 
       {sheetImport && (

@@ -35,6 +35,10 @@ import { parseLooseDate } from './importText';
  * The reply references lost items by NAME; matching them to the ids of earlier gains
  * happens here, chronologically, with the same canonicalizations the offline importer
  * uses (spell scrolls, catalog consumable names, base-name fallback for magic items).
+ *
+ * The reply parsing is format-agnostic (the JSON schema says nothing about where the
+ * data came from), so it's exported as parseChatbotImportReply for the AL Log chatbot
+ * path (importAlChatbot.ts) to reuse — only the prompt differs per source format.
  */
 
 // ---- Prompt --------------------------------------------------------------------
@@ -126,7 +130,24 @@ const pos = (v: unknown): number => Math.max(0, numeric(v) ?? 0);
 
 const LOSS_REASONS: readonly LossReason[] = ['used', 'traded', 'sold', 'lost', 'other'];
 
+/** Source-specific bits of a chatbot-reply import; everything else about the reply
+ * JSON (schema, canonicalizations, loss matching) is format-agnostic and shared —
+ * the AL Log chatbot path (importAlChatbot.ts) wraps this too. */
+export interface ChatbotReplyOptions {
+  /** Character name to fall back on when the reply doesn't carry one. */
+  fallbackName: (warnings: string[]) => string;
+  /** The character.notes line saying where this import came from. */
+  sourceNote: string;
+}
+
 export function parseSheetChatbotReply(reply: string, fileName?: string): AlImportResult {
+  return parseChatbotImportReply(reply, {
+    fallbackName: (warnings) => characterNameFromFile(fileName, warnings),
+    sourceNote: `Imported from a personal log-sheet CSV via an AI chatbot on ${new Date().toISOString().slice(0, 10)}.`,
+  });
+}
+
+export function parseChatbotImportReply(reply: string, opts: ChatbotReplyOptions): AlImportResult {
   const warnings: string[] = [];
   const start = reply.indexOf('{');
   const end = reply.lastIndexOf('}');
@@ -147,10 +168,10 @@ export function parseSheetChatbotReply(reply: string, fileName?: string): AlImpo
   const rawCharacter = (data.character ?? {}) as Record<string, unknown>;
   const character: Character = {
     id: newId(),
-    name: str(rawCharacter.name) ?? characterNameFromFile(fileName, warnings),
+    name: str(rawCharacter.name) ?? opts.fallbackName(warnings),
     species: str(rawCharacter.species) ?? '',
     class: str(rawCharacter.class) ?? '',
-    notes: `Imported from a personal log-sheet CSV via an AI chatbot on ${new Date().toISOString().slice(0, 10)}.`,
+    notes: opts.sourceNote,
     createdAt: Date.now(),
   };
 
@@ -161,6 +182,8 @@ export function parseSheetChatbotReply(reply: string, fileName?: string): AlImpo
   interface DraftLog {
     type: LogType;
     date: string;
+    /** HH:MM, when the source had one (AL Log exports carry full timestamps). */
+    time?: string;
     log: Record<string, unknown>;
     index: number;
   }
@@ -186,12 +209,20 @@ export function parseSheetChatbotReply(reply: string, fileName?: string): AlImpo
       warnings.push(`"${str(log.title) ?? `Log ${index + 1}`}" has no readable date — used ${date}.`);
     }
     lastDate = date;
-    drafts.push({ type, date, log, index });
+    const rawTime = str(log.time);
+    const time = rawTime && /^\d{1,2}:\d{2}$/.test(rawTime) ? rawTime.padStart(5, '0') : undefined;
+    drafts.push({ type, date, time, log, index });
   });
 
-  // Chronological order for loss-matching and replay ties; the prompt asks for
-  // oldest-first already, so a stable sort keeps the chatbot's same-date ordering.
-  drafts.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.index - b.index));
+  // Chronological order for loss-matching and replay ties (a missing time replays as
+  // 00:00, same as the derive engine); the prompt asks for oldest-first already, so
+  // the stable index tie-break keeps the chatbot's same-moment ordering.
+  drafts.sort(
+    (a, b) =>
+      (a.date < b.date ? -1 : a.date > b.date ? 1 : 0) ||
+      ((a.time ?? '00:00') < (b.time ?? '00:00') ? -1 : (a.time ?? '00:00') > (b.time ?? '00:00') ? 1 : 0) ||
+      a.index - b.index,
+  );
 
   // ---- Registries for matching losses against earlier gains -----------------------
   const stacks: { id: string; key: string; category: ItemCategory; remaining: number }[] = [];
@@ -228,6 +259,13 @@ export function parseSheetChatbotReply(reply: string, fileName?: string): AlImpo
       const c = canonicalConsumable(name, rarity);
       name = c.name;
       rarity = c.rarity;
+    }
+    if (category === 'equipment') {
+      // Snap to the catalog's canonical spelling (apostrophes, plural variants) so
+      // stacks merge with later entries — same as the offline importers do in
+      // parseNotesItems. The category stays whatever the chatbot said.
+      const match = lookupCatalog(name);
+      if (match) name = match.item.name;
     }
     if (category !== 'magic_item' && category !== 'consumable') rarity = undefined;
 
@@ -333,7 +371,7 @@ export function parseSheetChatbotReply(reply: string, fileName?: string): AlImpo
   // ---- Second pass: build the LogEntry list ---------------------------------------
   const logs: LogEntry[] = [];
   const createdAtBase = Date.now();
-  drafts.forEach(({ type, date, log }, chronoIndex) => {
+  drafts.forEach(({ type, date, time, log }, chronoIndex) => {
     const title = str(log.title) ?? '';
     const label = title || `Log ${chronoIndex + 1}`;
     const rawGains = Array.isArray(log.itemsGained) ? log.itemsGained : [];
@@ -360,6 +398,7 @@ export function parseSheetChatbotReply(reply: string, fileName?: string): AlImpo
       characterId: character.id,
       type,
       date,
+      time,
       title,
       notes: str(log.notes),
       dm: type === 'session' ? str(log.dm) : undefined,

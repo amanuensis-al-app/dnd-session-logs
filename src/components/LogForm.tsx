@@ -44,7 +44,7 @@ interface Props {
   /** When set, the form edits this log in place instead of creating a new one. */
   existingLog?: LogEntry;
   /** Initial values for a NEW log (e.g. parsed from pasted text) — unlike existingLog,
-   * the log gets saved as a fresh entry and the type tabs stay enabled. */
+   * the log gets saved as a fresh entry (new id/createdAt). */
   prefill?: LogEntry;
   onSave: (log: LogEntry) => void;
   onCancel: () => void;
@@ -227,7 +227,7 @@ export function LogForm({
 }: Props) {
   const editing = existingLog !== undefined;
   // Field initial values come from the edited log or a prefill draft; everything that
-  // must only apply while EDITING (id/createdAt reuse, locked type, downtime backout)
+  // must only apply while EDITING (id/createdAt reuse, downtime backout, loss add-back)
   // keeps checking existingLog.
   const initial = existingLog ?? prefill;
   const [minimized, setMinimized] = useState(false);
@@ -404,6 +404,19 @@ export function LogForm({
     ) / 100;
 
   function switchType(next: LogType) {
+    // While editing, switching type clears the item rows below — equivalent to
+    // deleting this log and starting a new one of the new type (id/createdAt are
+    // kept, so the log stays at the same date/order position). Worth a confirm:
+    // a misclick would otherwise silently discard the original log's items.
+    if (
+      editing &&
+      next !== type &&
+      !confirm(
+        `Change this log's type to "${LOG_TYPE_LABELS[next]}"? The item rows below will be cleared — saving is like deleting this log and creating a new ${LOG_TYPE_LABELS[next]} with the same date.`,
+      )
+    ) {
+      return;
+    }
     setType(next);
     // Sensible defaults per type; the user can still adjust visible fields.
     if (next === 'session' || next === 'catchup') {
@@ -558,7 +571,14 @@ export function LogForm({
           downtimeSpent: 5,
           itemsGained: [
             {
-              id: existingLog?.itemsGained[0]?.id ?? newId(),
+              // Keep the received item's id only when this log already was a
+              // transaction — after a type switch the old itemsGained belong to a
+              // different log, and reusing that id would retarget later losses of
+              // the old item onto the traded-for one.
+              id:
+                existingLog?.type === 'transaction'
+                  ? (existingLog.itemsGained[0]?.id ?? newId())
+                  : newId(),
               name: tradeGainedName.trim(),
               category: 'magic_item',
               rarity: tradeLostItem.rarity,
@@ -677,8 +697,6 @@ export function LogForm({
             type="button"
             className={type === t ? 'tab active' : 'tab'}
             onClick={() => switchType(t)}
-            disabled={editing}
-            title={editing ? 'The type cannot change while editing' : undefined}
           >
             {LOG_TYPE_LABELS[t]}
           </button>
