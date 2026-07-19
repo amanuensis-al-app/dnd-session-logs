@@ -8,6 +8,7 @@ import {
   STACKED_CATEGORIES,
 } from '../types';
 import { ItemEditModal, type ItemEditChanges } from './ItemEditModal';
+import { spellLevelLabel } from '../spells';
 
 interface Props {
   character: Character;
@@ -105,6 +106,9 @@ export function Inventory({ character, derived, onToggleMark, onEditItem }: Prop
                         ) : null}
                       </span>
                       {item.rarity && <span className={`rarity rarity-${item.rarity.replace(' ', '-')}`}>{item.rarity}</span>}
+                      {item.spellLevel != null && (
+                        <span className="muted">{spellLevelLabel(item.spellLevel)} level</span>
+                      )}
                       {item.remaining > 0 && equippable && (
                         <button
                           className={`equip-toggle${marked ? ' mark-equipped' : ''}`}

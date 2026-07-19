@@ -18,6 +18,7 @@ const TYPE_BADGE: Record<LogType, string> = {
   session: 'badge-session',
   catchup: 'badge-catchup',
   transaction: 'badge-transaction',
+  copy_spell: 'badge-copy-spell',
   purchase: 'badge-purchase',
   sell: 'badge-sell',
   creation: 'badge-creation',

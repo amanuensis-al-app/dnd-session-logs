@@ -7,6 +7,7 @@ import type {
   LogEntry,
   LogType,
   LossReason,
+  LostItem,
   MinorProperty,
   Rarity,
 } from '../types';
@@ -29,7 +30,15 @@ import type { CreationOption } from '../catalog';
 import { expandPacks } from '../packs';
 import { MagicItemNameField } from './MagicItemNameField';
 import { formatGp, sortLogs } from '../derive';
-import { costForSpellLevel, rarityForSpellLevel, type SpellDefinition } from '../spells';
+import {
+  copyCostForLevel,
+  copyDowntimeForLevel,
+  costForSpellLevel,
+  lookupSpell,
+  rarityForSpellLevel,
+  spellFromScrollName,
+  type SpellDefinition,
+} from '../spells';
 import { SpellScrollPicker } from './SpellScrollPicker';
 
 interface Props {
@@ -149,6 +158,8 @@ const TYPE_HELP: Record<LogType, string> = {
   session: 'A played session: rewards (and occasional losses) of gold, downtime, items and buffs.',
   catchup: 'Downtime activity: spend 10 downtime days per level gained.',
   transaction: 'Trade a magic item for another of the same rarity. Costs 5 downtime days.',
+  copy_spell:
+    'Wizard: copy spells into the spellbook — 50 gp per spell level, 1 downtime day (levels 1–4) or 2 (5+). Copying from a scroll consumes the scroll.',
   purchase: 'Spend gold on equipment or consumables.',
   sell: 'Sell equipment for gold. The price prefills at half of what you paid (or half list price).',
   creation: 'Character creation: starting gold and equipment. Pick a background to prefill.',
@@ -182,6 +193,76 @@ interface LossDraft {
   reason: LossReason;
   /** Sale price per unit in GP; only shown (and saved) for sell logs. */
   salePrice: string;
+}
+
+interface CopySpellDraft {
+  key: string;
+  /** Original GainedItem id when editing — preserved so later losses keep pointing at it. */
+  id?: string;
+  name: string;
+  /** Spell level as typed, '1'–'9'. */
+  level: string;
+  /** 'none' (Free Logs only — corrections may not know the source) saves the item
+   * with no copiedFrom at all; a Copy Spell log requires scroll or player. */
+  source: 'scroll' | 'player' | 'none';
+  /** 'scroll' source: id of the "Spell Scroll of <name>" inventory stack consumed. */
+  scrollItemId: string;
+  /** 'player' source: who it was copied from ("player / character name"). */
+  partner: string;
+}
+
+function emptyCopySpell(): CopySpellDraft {
+  return {
+    key: newId(),
+    name: '',
+    level: '',
+    source: 'scroll',
+    scrollItemId: '',
+    partner: '',
+  };
+}
+
+/** Auto-fill value for a Copy Spell log's downtime: 1 day per spell of level 1–4,
+ * 2 days for 5+ (a half-typed row counts as the 1-day minimum). The field itself
+ * stays editable — special class rules (e.g. Scribe wizard) change the real cost,
+ * and the tracker doesn't try to model those. */
+function computeCopyDowntime(rows: CopySpellDraft[]): number {
+  return rows
+    .filter((c) => c.name.trim())
+    .reduce((sum, c) => sum + copyDowntimeForLevel(Math.max(1, Math.round(num(c.level)))), 0);
+}
+
+/** Auto-fill value for a Copy Spell log's GP cost: 50 gp × level per spell. Editable
+ * for the same reason as the downtime. */
+function computeCopyGp(rows: CopySpellDraft[]): number {
+  return rows
+    .filter((c) => c.name.trim())
+    .reduce((sum, c) => sum + copyCostForLevel(Math.max(0, Math.round(num(c.level)))), 0);
+}
+
+/** Which of a log's itemsLost rows belong to its Copy Spell rows: one 'used' scroll
+ * loss per scroll-sourced copied gain, matched by the scroll's spell name, each loss
+ * claimable once. Returned as gainId → itemsLost index. Both the copy-row and the
+ * generic-loss initializers consult this, so on edit every scroll loss is owned by
+ * exactly one side and can't be double-recorded on save. */
+function claimScrollLosses(log: LogEntry, itemNameById: Map<string, string>): Map<string, number> {
+  const byGain = new Map<string, number>();
+  const claimed = new Set<number>();
+  for (const g of log.itemsGained) {
+    if (g.category !== 'copied_spell' || g.copiedFrom?.source !== 'scroll') continue;
+    const target = g.name.trim().toLowerCase();
+    const idx = log.itemsLost.findIndex((l, i) => {
+      if (claimed.has(i) || l.reason !== 'used') return false;
+      const n = itemNameById.get(l.itemId);
+      const spell = n ? spellFromScrollName(n) : undefined;
+      return spell?.spellName.toLowerCase() === target;
+    });
+    if (idx >= 0) {
+      claimed.add(idx);
+      byGain.set(g.id, idx);
+    }
+  }
+  return byGain;
 }
 
 function emptyGain(category: ItemCategory = 'magic_item'): GainDraft {
@@ -245,7 +326,17 @@ export function LogForm({
   const [downtimeSpent, setDowntimeSpent] = useState(String(initial?.downtimeSpent ?? 0));
   const [levelGained, setLevelGained] = useState(String(initial?.levelGained ?? 1));
   const [gains, setGains] = useState<GainDraft[]>(() => {
-    const drafts = (initial?.itemsGained ?? []).map((item) => ({
+    // Copied spells have their own dedicated rows (copySpells below) in the two
+    // types that can grant them — keep them out of the generic gain drafts.
+    const drafts = (initial?.itemsGained ?? [])
+      .filter(
+        (item) =>
+          !(
+            item.category === 'copied_spell' &&
+            (initial?.type === 'copy_spell' || initial?.type === 'free')
+          ),
+      )
+      .map((item) => ({
       key: item.id,
       id: item.id,
       category: item.category,
@@ -270,15 +361,32 @@ export function LogForm({
     return drafts;
   });
   const [losses, setLosses] = useState<LossDraft[]>(() => {
-    const drafts = (initial?.itemsLost ?? []).map((lost, i) => ({
-      key: `${lost.itemId}:${i}`,
-      // The lost item's own category preselects the dropdown filter.
-      category: derived.allItems.find((i) => i.id === lost.itemId)?.category ?? 'consumable',
-      itemId: lost.itemId,
-      quantity: String(lost.quantity),
-      reason: lost.reason,
-      salePrice: lost.salePrice != null ? String(lost.salePrice) : '',
-    }));
+    // Scroll losses that belong to the Copy Spell rows are rebuilt from those rows
+    // on save — exclude them here so an edited Free Log doesn't record them twice.
+    const claimedIdx =
+      initial?.type === 'copy_spell' || initial?.type === 'free'
+        ? new Set(
+            claimScrollLosses(
+              initial,
+              new Map(derived.allItems.map((i) => [i.id, i.name])),
+            ).values(),
+          )
+        : new Set<number>();
+    const drafts = (initial?.itemsLost ?? []).flatMap((lost, i) => {
+      if (claimedIdx.has(i)) return [];
+      return [
+        {
+          key: `${lost.itemId}:${i}`,
+          // The lost item's own category preselects the dropdown filter.
+          category:
+            derived.allItems.find((it) => it.id === lost.itemId)?.category ?? ('consumable' as ItemCategory),
+          itemId: lost.itemId,
+          quantity: String(lost.quantity),
+          reason: lost.reason,
+          salePrice: lost.salePrice != null ? String(lost.salePrice) : '',
+        },
+      ];
+    });
     // Sell logs saved without per-item prices (imports may not know them) only stored
     // the total; put it back on a sole item so the recomputed GP gained matches.
     if (
@@ -316,6 +424,31 @@ export function LogForm({
       ? (existingLog.itemsGained[0]?.requiresAttunement ?? true)
       : true,
   );
+
+  // Copy Spell rows — used by Copy Spell logs AND Free Logs (there without the
+  // auto gp/downtime). Editing rebuilds them from the saved gains: level from
+  // spellLevel, source from copiedFrom, and — for scroll copies — the consumed
+  // scroll re-found among this log's own losses by its "Spell Scroll of <name>"
+  // name (each loss row claimable once, so two copies off one stack round-trip).
+  const [copySpells, setCopySpells] = useState<CopySpellDraft[]>(() => {
+    if (initial?.type !== 'copy_spell' && initial?.type !== 'free') return [];
+    const nameById = new Map(derived.allItems.map((i) => [i.id, i.name]));
+    const claims = claimScrollLosses(initial, nameById);
+    return (initial.itemsGained ?? [])
+      .filter((item) => item.category === 'copied_spell')
+      .map((item) => {
+        const lossIdx = claims.get(item.id);
+        return {
+          key: item.id,
+          id: item.id,
+          name: item.name,
+          level: item.spellLevel != null ? String(item.spellLevel) : '',
+          source: item.copiedFrom?.source ?? 'none',
+          scrollItemId: lossIdx != null ? initial.itemsLost[lossIdx].itemId : '',
+          partner: item.copiedFrom?.partner ?? '',
+        };
+      });
+  });
 
   // Items this form may record as lost: current inventory, plus whatever this log
   // already lost (so an edit can keep or re-pick those).
@@ -393,6 +526,43 @@ export function LogForm({
       ) * 100,
     ) / 100;
 
+  // Copy Spell auto-fill totals (50 gp × level; 1 downtime day for levels 1–4, 2 for
+  // 5+). Both land in the ordinary editable gpLost/downtimeSpent fields — the user
+  // may override (Scribe wizard etc.), and any change to the rows re-runs the
+  // auto-fill (owner rule 2026-07-20).
+  const copyRows = copySpells.filter((c) => c.name.trim());
+  const copyDowntimeTotal = computeCopyDowntime(copySpells);
+  const copyGpTotal = computeCopyGp(copySpells);
+
+  /** Owned consumable scroll stacks for the given spell ("Spell Scroll of X" in
+   * either written form, matched via spellFromScrollName). */
+  function matchingScrolls(spellName: string) {
+    const target = spellName.trim().toLowerCase();
+    return ownedItems.filter(
+      (i) =>
+        i.category === 'consumable' &&
+        spellFromScrollName(i.name)?.spellName.toLowerCase() === target,
+    );
+  }
+
+  /** Scroll options for a Copy Spell row: with a spell name, the stacks matching it;
+   * with the name still empty, EVERY owned spell scroll (minus known cantrips, which
+   * can't be copied) — picking one then fills the name/level in. */
+  function scrollOptionsFor(c: CopySpellDraft) {
+    if (c.name.trim()) return matchingScrolls(c.name);
+    return ownedItems.filter((i) => {
+      if (i.category !== 'consumable') return false;
+      const spell = spellFromScrollName(i.name);
+      return spell !== undefined && spell.level !== 0;
+    });
+  }
+
+  /** Auto-select the scroll when exactly one stack matches the spell name. */
+  function autoScrollFor(spellName: string): string {
+    const matches = matchingScrolls(spellName);
+    return matches.length === 1 ? matches[0].id : '';
+  }
+
   // Sell logs derive their GP gained from the sale prices (rounded to copper).
   const sellTotal =
     Math.round(
@@ -431,9 +601,14 @@ export function LogForm({
       setCreationBgOption(0);
       setCreationClass('');
       setCreationClassOption(0);
+    } else if (next === 'copy_spell') {
+      // Rows start empty, so both auto-filled fields start at 0.
+      setGpLost('0');
+      setDowntimeSpent('0');
     }
     setGains([]);
     setLosses([]);
+    setCopySpells([]);
   }
 
   /** Creation log: (re)fill the gold + item rows from the picked background AND class option. */
@@ -488,6 +663,104 @@ export function LogForm({
 
   function updateLoss(key: string, patch: Partial<LossDraft>) {
     setLosses((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+  }
+
+  /** All Copy Spell row mutations funnel through here: in a Copy Spell log, any
+   * change re-runs the gp/downtime auto-fill immediately (owner rule — the fields
+   * stay editable for special class rules like Scribe wizard, but only until the
+   * next row change). Free Logs keep their manually entered numbers. */
+  function mutateCopySpells(next: CopySpellDraft[]) {
+    setCopySpells(next);
+    if (type === 'copy_spell') {
+      setGpLost(String(computeCopyGp(next)));
+      setDowntimeSpent(String(computeCopyDowntime(next)));
+    }
+  }
+
+  function updateCopySpell(key: string, patch: Partial<CopySpellDraft>) {
+    mutateCopySpells(copySpells.map((c) => (c.key === key ? { ...c, ...patch } : c)));
+  }
+
+  // Copy Spell row (by key) currently showing the spell picker, or null.
+  const [copySpellPickerFor, setCopySpellPickerFor] = useState<string | null>(null);
+
+  /** Turns the Copy Spell rows into gains + consumed-scroll losses, or an error
+   * string. Shared by Copy Spell logs (requireSource: every spell must say where it
+   * came from) and Free Logs (corrections may leave the source unrecorded). A spell
+   * can only ever be copied once: duplicates within the log and spells already in
+   * the spellbook (except this log's own, when editing) are refused. */
+  function buildCopiedSpells(
+    requireSource: boolean,
+  ): { gains: GainedItem[]; losses: LostItem[] } | string {
+    const gains: GainedItem[] = [];
+    const losses: LostItem[] = [];
+    // Several rows may draw on the same scroll stack — track combined usage so
+    // two copies can't consume more scrolls than the character owns.
+    const scrollUse = new Map<string, number>();
+    const seen = new Set<string>();
+    for (const c of copyRows) {
+      const name = c.name.trim();
+      const nameKey = name.toLowerCase();
+      const level = Math.round(num(c.level));
+      if (level < 1 || level > 9) {
+        return `"${name}": spell level must be 1–9 (cantrips can't be copied).`;
+      }
+      if (seen.has(nameKey)) {
+        return `"${name}" is listed twice — a spell can only be copied into the book once.`;
+      }
+      seen.add(nameKey);
+      const already = ownedItems.find(
+        (i) =>
+          i.category === 'copied_spell' &&
+          i.name.trim().toLowerCase() === nameKey &&
+          i.sourceLogId !== existingLog?.id,
+      );
+      if (already) {
+        return `"${name}" is already in ${character.name}'s spellbook (copied ${already.acquiredDate}) — a spell can only be copied once.`;
+      }
+      if (c.source === 'scroll') {
+        const scroll = ownedItems.find((i) => i.id === c.scrollItemId);
+        if (!scroll) {
+          return `"${name}": pick the Spell Scroll it was copied from — copying from a scroll requires owning "Spell Scroll of ${name}".`;
+        }
+        const fromScroll = spellFromScrollName(scroll.name);
+        if (!fromScroll || fromScroll.spellName.toLowerCase() !== nameKey) {
+          return `"${name}": the selected scroll (${scroll.name}) doesn't match the spell.`;
+        }
+        const used = (scrollUse.get(scroll.id) ?? 0) + 1;
+        if (used > scroll.remaining) {
+          return `"${name}": only ${scroll.remaining} × ${scroll.name} owned, but ${used} would be consumed.`;
+        }
+        scrollUse.set(scroll.id, used);
+        losses.push({ itemId: scroll.id, quantity: 1, reason: 'used' });
+      } else if (c.source === 'player') {
+        if (!c.partner.trim()) {
+          return `"${name}": enter who it was copied from (player / character name).`;
+        }
+      } else if (requireSource) {
+        return `"${name}": pick where it was copied from (scroll or another player).`;
+      }
+      gains.push({
+        id: c.id ?? newId(),
+        name,
+        category: 'copied_spell',
+        quantity: 1,
+        spellLevel: level,
+        copiedFrom:
+          c.source === 'scroll'
+            ? { source: 'scroll' }
+            : c.source === 'player'
+              ? { source: 'player', partner: c.partner.trim() }
+              : undefined,
+        description:
+          c.source === 'scroll'
+            ? 'Copied from a spell scroll'
+            : c.source === 'player'
+              ? `Copied from ${c.partner.trim()}`
+              : undefined,
+      });
+    }
+    return { gains, losses };
   }
 
   function buildLog(): LogEntry | string {
@@ -591,6 +864,19 @@ export function LogForm({
           itemsLost: [{ itemId: tradeLostItem.id, quantity: 1, reason: 'traded' }],
         };
       }
+      case 'copy_spell': {
+        if (copyRows.length === 0) return 'Add at least one spell copied.';
+        const copied = buildCopiedSpells(true);
+        if (typeof copied === 'string') return copied;
+        return {
+          ...base,
+          title: base.title || `Copied ${copied.gains.map((g) => g.name).join(', ')}`,
+          gpLost: Math.max(0, num(gpLost)),
+          downtimeSpent: Math.max(0, num(downtimeSpent)),
+          itemsGained: copied.gains,
+          itemsLost: copied.losses,
+        };
+      }
       case 'purchase':
         if (gainedItems.length === 0) return 'Add at least one item you bought.';
         return {
@@ -626,7 +912,9 @@ export function LogForm({
           itemsGained: gainedItems,
         };
       }
-      case 'free':
+      case 'free': {
+        const copied = buildCopiedSpells(false);
+        if (typeof copied === 'string') return copied;
         return {
           ...base,
           title: base.title || 'Free Log',
@@ -635,9 +923,10 @@ export function LogForm({
           downtimeGained: Math.max(0, num(downtimeGained)),
           downtimeSpent: Math.max(0, num(downtimeSpent)),
           levelGained: Math.round(num(levelGained)),
-          itemsGained: gainedItems,
-          itemsLost: lostItems,
+          itemsGained: [...gainedItems, ...copied.gains],
+          itemsLost: [...lostItems, ...copied.losses],
         };
+      }
     }
   }
 
@@ -655,12 +944,15 @@ export function LogForm({
   const catchupLevels = Math.max(1, Math.round(num(levelGained)));
   const downtimeWarning =
     (type === 'catchup' && downtimeAvailable < catchupLevels * 10) ||
-    (type === 'transaction' && downtimeAvailable < 5);
+    (type === 'transaction' && downtimeAvailable < 5) ||
+    (type === 'copy_spell' && num(downtimeSpent) > 0 && downtimeAvailable < num(downtimeSpent));
 
+  // Copied spells never appear in the generic gain rows — Copy Spell logs AND Free
+  // Logs both get the dedicated "Spells copied" section instead.
   const gainCategories: ItemCategory[] =
     type === 'purchase' || type === 'creation'
       ? ['equipment', 'consumable']
-      : [...ITEM_CATEGORIES];
+      : ITEM_CATEGORIES.filter((c) => c !== 'copied_spell');
 
   const showGains =
     type === 'session' || type === 'purchase' || type === 'creation' || type === 'free';
@@ -706,7 +998,8 @@ export function LogForm({
       {downtimeWarning && (
         <p className="warning">
           ⚠ {character.name} has only {downtimeAvailable} downtime days — this log spends{' '}
-          {type === 'catchup' ? catchupLevels * 10 : 5}. It will still be recorded if you save.
+          {type === 'catchup' ? catchupLevels * 10 : type === 'copy_spell' ? num(downtimeSpent) : 5}.
+          It will still be recorded if you save.
         </p>
       )}
 
@@ -1120,6 +1413,55 @@ export function LogForm({
         </>
       )}
 
+      {type === 'copy_spell' && (
+        <div className="form-grid">
+          <label>
+            <span>
+              GP cost <span className="muted">(auto-fills: 50 gp × level — editable)</span>
+            </span>
+            <span className="combo">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={gpLost}
+                onChange={(e) => setGpLost(e.target.value)}
+              />
+              <button
+                type="button"
+                className="btn btn-ghost btn-small"
+                title="Recompute from the spells listed (50 gp × level)"
+                onClick={() => setGpLost(String(copyGpTotal))}
+              >
+                ↺ Auto
+              </button>
+            </span>
+          </label>
+          <label>
+            <span>
+              Downtime spent{' '}
+              <span className="muted">(auto-fills: 1 day ≤4th, 2 days 5th+ — editable, e.g. Scribe Wiz)</span>
+            </span>
+            <span className="combo">
+              <input
+                type="number"
+                min="0"
+                value={downtimeSpent}
+                onChange={(e) => setDowntimeSpent(e.target.value)}
+              />
+              <button
+                type="button"
+                className="btn btn-ghost btn-small"
+                title="Recompute from the spells listed (1 day for levels 1–4, 2 days for 5+)"
+                onClick={() => setDowntimeSpent(String(copyDowntimeTotal))}
+              >
+                ↺ Auto
+              </button>
+            </span>
+          </label>
+        </div>
+      )}
+
       {showGains && (
         <fieldset className="log-form-items">
           <legend>Items gained</legend>
@@ -1355,6 +1697,179 @@ export function LogForm({
         </fieldset>
       )}
 
+      {(type === 'copy_spell' || type === 'free') && (
+        <>
+          <fieldset className="log-form-items">
+            <legend>Spells copied</legend>
+            {copySpells.map((c) => {
+              const scrolls = scrollOptionsFor(c);
+              const nameKey = c.name.trim().toLowerCase();
+              const dupInLog =
+                nameKey !== '' &&
+                copySpells.some((o) => o.key !== c.key && o.name.trim().toLowerCase() === nameKey);
+              const alreadyOwned =
+                nameKey !== '' &&
+                ownedItems.some(
+                  (i) =>
+                    i.category === 'copied_spell' &&
+                    i.name.trim().toLowerCase() === nameKey &&
+                    i.sourceLogId !== existingLog?.id,
+                );
+              return (
+                <div key={c.key}>
+                  <div className="item-row">
+                    <span className="item-row-name">
+                      <input
+                        value={c.name}
+                        placeholder="spell name *"
+                        onChange={(e) => {
+                          const name = e.target.value;
+                          // A known spell fills in its level; the scroll pick resets
+                          // since it must match the (new) name.
+                          const known = lookupSpell(name);
+                          updateCopySpell(c.key, {
+                            name,
+                            ...(known && known.level >= 1 ? { level: String(known.level) } : {}),
+                            ...(c.source === 'scroll' ? { scrollItemId: autoScrollFor(name) } : {}),
+                          });
+                        }}
+                      />
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-small"
+                      title="Pick from the spell list"
+                      onClick={() => setCopySpellPickerFor(c.key)}
+                    >
+                      📋
+                    </button>
+                    <input
+                      className="item-row-qty"
+                      type="number"
+                      min="1"
+                      max="9"
+                      value={c.level}
+                      placeholder="lvl"
+                      title="Spell level (1–9; cantrips can't be copied)"
+                      onChange={(e) => updateCopySpell(c.key, { level: e.target.value })}
+                    />
+                    <select
+                      value={c.source}
+                      title="Where the spell was copied from"
+                      onChange={(e) => {
+                        const source = e.target.value as CopySpellDraft['source'];
+                        updateCopySpell(c.key, {
+                          source,
+                          scrollItemId: source === 'scroll' ? autoScrollFor(c.name) : '',
+                        });
+                      }}
+                    >
+                      <option value="scroll">From a scroll</option>
+                      <option value="player">From another player</option>
+                      {/* Free Logs are corrections — the source may simply not be
+                          known. A Copy Spell log requires scroll or player. */}
+                      {(type === 'free' || c.source === 'none') && (
+                        <option value="none">Source not recorded</option>
+                      )}
+                    </select>
+                    {c.source === 'scroll' && (
+                      <select
+                        className="item-row-name"
+                        value={c.scrollItemId}
+                        onChange={(e) => {
+                          const scrollItemId = e.target.value;
+                          // With the spell name still empty, picking a scroll IS the
+                          // spell pick: fill the name (and level, when recognized)
+                          // from the scroll.
+                          if (scrollItemId && c.name.trim() === '') {
+                            const item = ownedItems.find((i) => i.id === scrollItemId);
+                            const spell = item && spellFromScrollName(item.name);
+                            updateCopySpell(c.key, {
+                              scrollItemId,
+                              ...(spell
+                                ? {
+                                    name: spell.spellName,
+                                    ...(spell.level != null && spell.level >= 1
+                                      ? { level: String(spell.level) }
+                                      : {}),
+                                  }
+                                : {}),
+                            });
+                            return;
+                          }
+                          updateCopySpell(c.key, { scrollItemId });
+                        }}
+                      >
+                        <option value="">— pick the scroll consumed * —</option>
+                        {scrolls.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                            {s.remaining > 1 ? ` (×${s.remaining})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {c.source === 'player' && (
+                      <input
+                        value={c.partner}
+                        placeholder="player / character name *"
+                        onChange={(e) => updateCopySpell(c.key, { partner: e.target.value })}
+                      />
+                    )}
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-small"
+                      onClick={() => mutateCopySpells(copySpells.filter((x) => x.key !== c.key))}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {dupInLog && (
+                    <p className="warning">
+                      ⚠ "{c.name.trim()}" is listed twice in this log — a spell can only be
+                      copied once.
+                    </p>
+                  )}
+                  {!dupInLog && alreadyOwned && (
+                    <p className="warning">
+                      ⚠ "{c.name.trim()}" is already in {character.name}'s spellbook — it can't
+                      be copied again.
+                    </p>
+                  )}
+                  {c.source === 'scroll' && scrolls.length === 0 && (
+                    <p className="warning">
+                      {c.name.trim() !== '' ? (
+                        <>
+                          ⚠ {character.name} owns no "Spell Scroll of {c.name.trim()}" — copying
+                          from a scroll requires that scroll in the inventory.
+                        </>
+                      ) : (
+                        <>
+                          ⚠ {character.name} owns no copyable spell scrolls — add one to the
+                          inventory first, or change the source.
+                        </>
+                      )}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => mutateCopySpells([...copySpells, emptyCopySpell()])}
+            >
+              + Add spell
+            </button>
+          </fieldset>
+          <p className="muted log-form-footnote">
+            Copying from a scroll consumes the scroll (it is recorded as used by this log).
+            {type === 'free' &&
+              ' In a Free Log the GP / downtime costs are entered manually above (standard rule: 50 gp × level; 1 downtime day for levels 1–4, 2 for 5+).'}
+          </p>
+        </>
+      )}
+
       <label className="log-form-notes">
         Notes
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
@@ -1373,6 +1888,23 @@ export function LogForm({
         <SpellScrollPicker
           onPick={(spell) => pickSpellScroll(spellPickerFor, spell)}
           onClose={() => setSpellPickerFor(null)}
+        />
+      )}
+
+      {copySpellPickerFor && (
+        <SpellScrollPicker
+          minLevel={1}
+          title="Pick a Spell to Copy"
+          intro="Fills in the spell name and level. Cantrips can't be copied into a spellbook."
+          onPick={(spell) => {
+            updateCopySpell(copySpellPickerFor, {
+              name: spell.name,
+              level: String(spell.level),
+              scrollItemId: autoScrollFor(spell.name),
+            });
+            setCopySpellPickerFor(null);
+          }}
+          onClose={() => setCopySpellPickerFor(null)}
         />
       )}
     </form>

@@ -8,6 +8,7 @@ export const ITEM_CATEGORIES = [
   'blessing',
   'charm',
   'boon',
+  'copied_spell',
 ] as const;
 
 export type ItemCategory = (typeof ITEM_CATEGORIES)[number];
@@ -20,6 +21,7 @@ export const CATEGORY_LABELS: Record<ItemCategory, string> = {
   blessing: 'Blessings',
   charm: 'Charms',
   boon: 'Boons',
+  copied_spell: 'Copied Spells',
 };
 
 export const CATEGORY_LABELS_SINGULAR: Record<ItemCategory, string> = {
@@ -30,6 +32,7 @@ export const CATEGORY_LABELS_SINGULAR: Record<ItemCategory, string> = {
   blessing: 'Blessing',
   charm: 'Charm',
   boon: 'Boon',
+  copied_spell: 'Copied Spell',
 };
 
 export const RARITIES = [
@@ -85,7 +88,7 @@ export type MinorProperty = (typeof MINOR_PROPERTIES)[number];
 
 // ---- Logs -------------------------------------------------------------------
 
-export const LOG_TYPES = ['session', 'catchup', 'transaction', 'purchase', 'sell', 'creation', 'free'] as const;
+export const LOG_TYPES = ['session', 'catchup', 'transaction', 'copy_spell', 'purchase', 'sell', 'creation', 'free'] as const;
 
 export type LogType = (typeof LOG_TYPES)[number];
 
@@ -93,6 +96,7 @@ export const LOG_TYPE_LABELS: Record<LogType, string> = {
   session: 'Session',
   catchup: 'Catch Up',
   transaction: 'Transaction',
+  copy_spell: 'Copy Spell',
   purchase: 'Purchase',
   sell: 'Sell',
   creation: 'Creation',
@@ -117,6 +121,15 @@ export function stackedItemId(item: {
   return `stk:${item.category}|${item.name.trim().toLowerCase()}|${item.rarity ?? ''}`;
 }
 
+/** Where a copied spell (a Wizard's spellbook entry, category 'copied_spell') came
+ * from — recorded by Copy Spell logs so editing one can rebuild its form rows. */
+export interface CopiedSpellSource {
+  source: 'scroll' | 'player';
+  /** 'player' source only: who it was copied from ("player / character name" free
+   * text, same convention as a transaction's tradePartner). */
+  partner?: string;
+}
+
 /** An item granted by a log entry. For non-stacked categories the id identifies this
  * item instance forever; for stacked categories it is the content-derived stack id. */
 export interface GainedItem {
@@ -137,6 +150,10 @@ export interface GainedItem {
   requiresAttunement?: boolean;
   /** Purchase price per unit in GP. Recorded by purchase logs, which derive their GP spent from it. */
   cost?: number;
+  /** Copied spells only: the spell's level (1–9; cantrips can't be copied). */
+  spellLevel?: number;
+  /** Copied spells only: where the spell was copied from. */
+  copiedFrom?: CopiedSpellSource;
 }
 
 export type LossReason = 'used' | 'traded' | 'sold' | 'lost' | 'other';

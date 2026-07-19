@@ -6,24 +6,32 @@ import { Modal } from './Modal';
 interface Props {
   onPick: (spell: SpellDefinition) => void;
   onClose: () => void;
+  /** Hide spells below this level (Copy Spell passes 1 — cantrips can't be copied). */
+  minLevel?: number;
+  title?: string;
+  /** Explanatory line above the search box; the default describes the scroll flow. */
+  intro?: string;
 }
 
-/** Search-and-pick modal for "Spell Scroll of <Spell>". Closing without picking (Escape,
- * backdrop click, or the Cancel button) leaves the caller's item name as plain
- * "Spell Scroll" — the user can keep typing the rest by hand. */
-export function SpellScrollPicker({ onPick, onClose }: Props) {
+/** Search-and-pick modal over SPELL_LIST. Default configuration serves the
+ * "Spell Scroll of <Spell>" flow: closing without picking (Escape, backdrop click,
+ * or the Cancel button) leaves the caller's item name as plain "Spell Scroll" — the
+ * user can keep typing the rest by hand. The Copy Spell log reuses it with
+ * `minLevel={1}` and its own wording. */
+export function SpellScrollPicker({ onPick, onClose, minLevel = 0, title, intro }: Props) {
   const [query, setQuery] = useState('');
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return q ? SPELL_LIST.filter((s) => s.name.toLowerCase().includes(q)) : SPELL_LIST;
-  }, [query]);
+    const pool = SPELL_LIST.filter((s) => s.level >= minLevel);
+    return q ? pool.filter((s) => s.name.toLowerCase().includes(q)) : pool;
+  }, [query, minLevel]);
 
   return (
-    <Modal title="Pick a Spell" onClose={onClose}>
+    <Modal title={title ?? 'Pick a Spell'} onClose={onClose}>
       <p className="muted">
-        Sets the item to "Spell Scroll of &lt;Spell&gt;" with its rarity (and, in a
-        Purchase log, its price) from the spell's level.
+        {intro ??
+          'Sets the item to "Spell Scroll of <Spell>" with its rarity (and, in a Purchase log, its price) from the spell\'s level.'}
       </p>
       <input
         autoFocus

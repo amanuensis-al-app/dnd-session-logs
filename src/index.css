@@ -164,6 +164,7 @@ h2 {
 .badge-session { background: #2e4a37; color: #a4d9ae; }
 .badge-catchup { background: #453a63; color: #c3b4ee; }
 .badge-transaction { background: #24455a; color: #9fd0ec; }
+.badge-copy-spell { background: #472a5a; color: #d3a9ec; }
 .badge-purchase { background: #5a4424; color: #ecd09f; }
 .badge-sell { background: #4d5a24; color: #d9ec9f; }
 .badge-creation { background: #1f4f4a; color: #9fe8dc; }
@@ -879,6 +880,11 @@ textarea:focus {
 .log-form-fixed {
   font-size: 0.9rem;
   margin: 0.2rem 0 0.8rem;
+}
+
+.log-form-footnote {
+  font-size: 0.78rem;
+  margin: 0.2rem 0 0.6rem;
 }
 
 .log-form-items {

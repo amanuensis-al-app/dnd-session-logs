@@ -619,6 +619,33 @@ export function costForSpellLevel(level: number): number {
   return SPELL_SCROLL_COST_BY_LEVEL[level] ?? 0;
 }
 
+// ---- Copying spells into a spellbook (Copy Spell logs, owner AL rules 2026-07-20) --
+// Cantrips can't be copied at all — Copy Spell only accepts levels 1–9.
+
+/** Downtime days to copy one spell: 1 for levels 1–4, 2 for 5+. */
+export function copyDowntimeForLevel(level: number): number {
+  return level <= 4 ? 1 : 2;
+}
+
+/** GP cost to copy one spell: 50 gp per spell level. */
+export function copyCostForLevel(level: number): number {
+  return 50 * level;
+}
+
+/** Bare spell name (and level, when the spell is known) from a scroll item's name —
+ * "Spell Scroll of Fireball" / "Spell Scroll (Fireball)" → { spellName: 'Fireball',
+ * level: 3 }. Not a spell scroll (or a generic placeholder) → undefined. Used by the
+ * Copy Spell form to offer owned scrolls and fill the spell from the picked one. */
+export function spellFromScrollName(
+  rawName: string,
+): { spellName: string; level?: number } | undefined {
+  const m = rawName.trim().match(SPELL_SCROLL_RE);
+  const spellRaw = (m?.[1] ?? m?.[2])?.trim();
+  if (!spellRaw || GENERIC_PLACEHOLDER_RE.test(spellRaw)) return undefined;
+  const known = lookupSpell(spellRaw);
+  return { spellName: known ? known.name : spellRaw, level: known?.level };
+}
+
 /** "Cantrip", "1st", "2nd", "3rd", "4th", … for display. */
 export function spellLevelLabel(level: number): string {
   if (level === 0) return 'Cantrip';
