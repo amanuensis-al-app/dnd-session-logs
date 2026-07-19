@@ -182,7 +182,7 @@ export default function App() {
 
   async function handleBackup() {
     const bundle = await db.exportData();
-    downloadBundle(bundle, `al-tracker-backup-${bundle.exportedAt.slice(0, 10)}.json`);
+    downloadBundle(bundle, `amanuensis-backup-${bundle.exportedAt.slice(0, 10)}.json`);
     markBackedUp();
   }
 
@@ -204,7 +204,7 @@ export default function App() {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '') || 'character';
-    downloadBundle(bundle, `al-tracker-${slug}-backup-${exportedAt.slice(0, 10)}.json`);
+    downloadBundle(bundle, `amanuensis-${slug}-backup-${exportedAt.slice(0, 10)}.json`);
   }
 
   /** Opens the restore flow. `characterId` scopes it to that one character (from a
@@ -287,7 +287,7 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <button className="app-title" onClick={() => setView({ screen: 'list' })}>
-          <span className="app-title-icon">⚔️</span> AL Tracker
+          <span className="app-title-icon">⚔️</span> AMAnuensis
         </button>
         <div className="app-header-actions">
           <button

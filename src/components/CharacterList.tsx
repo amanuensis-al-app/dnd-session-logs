@@ -45,7 +45,7 @@ export function CharacterList({
   const importKindRef = useRef<'al' | 'sheet'>('al');
   const backupImportInputRef = useRef<HTMLInputElement>(null);
   // "Import Log Sheet" reads the owner's own private log-sheet format — not something
-  // a random AL Tracker user would have. Hidden behind typing R R Q anywhere on this
+  // a random AMAnuensis user would have. Hidden behind typing R R Q anywhere on this
   // screen (not while typing in a field) so it doesn't confuse everyone else.
   const [logSheetUnlocked, setLogSheetUnlocked] = useState(false);
 
@@ -153,7 +153,7 @@ export function CharacterList({
           <button
             className="btn btn-ghost"
             onClick={() => backupImportInputRef.current?.click()}
-            title="Import character(s) from an AL Tracker backup file (Backup All or Backup Character) — always added as new, never overwrites anything"
+            title="Import character(s) from an AMAnuensis backup file (Backup All or Backup Character) — always added as new, never overwrites anything"
           >
             Import Backup
           </button>

@@ -1,7 +1,15 @@
-# AL Tracker — D&D Session Logs
+# AMAnuensis — D&D Session Logs
 
 A local-first PWA for tracking D&D Adventurers League bookkeeping: characters, session logs,
 gold, downtime, magic items, consumables, equipment, story awards, blessings, charms and boons.
+
+## About the name
+
+An *amanuensis* is a scribe — someone who takes dictation and copies what happened, which is
+exactly what this app does for your adventures. It's also a classic D&D spell (*Amanuensis*,
+of copying-text fame). And **AMA** for short is a nod our community will recognize: the
+amethyst dragon Amaranthraxine, "Ama" to friends — who, like a grandma (*ama* in some Chinese
+dialects), is always asking whether you've eaten and writing down everything you did.
 
 All data lives in your browser (IndexedDB). No server, no accounts. Use **Backup / Restore**
 (JSON) to back up or move data between devices. The app keeps track of changes made since

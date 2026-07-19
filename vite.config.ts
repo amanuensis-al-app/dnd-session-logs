@@ -12,8 +12,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg'],
       manifest: {
-        name: 'AL Tracker — D&D Session Logs',
-        short_name: 'AL Tracker',
+        name: 'AMAnuensis — D&D Session Logs',
+        short_name: 'AMA',
         description:
           'Track D&D Adventurers League characters and session logs — offline, all data stays on your device.',
         theme_color: '#16121f',

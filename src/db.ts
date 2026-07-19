@@ -110,7 +110,7 @@ export function validateBundle(data: unknown): ExportBundle {
     !Array.isArray(bundle.characters) ||
     !Array.isArray(bundle.logs)
   ) {
-    throw new Error('Not a valid AL Tracker export file.');
+    throw new Error('Not a valid AMAnuensis backup file.');
   }
   return bundle;
 }
