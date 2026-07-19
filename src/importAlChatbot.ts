@@ -45,7 +45,7 @@ Use exactly this shape:
   "character": { "name": "...", "species": "the race value", "class": "the class_and_levels value, verbatim" },
   "logs": [
     {
-      "type": one of "session", "catchup", "transaction", "purchase", "sell", "creation", "free",
+      "type": one of "session", "catchup", "transaction", "copy_spell", "purchase", "sell", "creation", "free",
       "date": "YYYY-MM-DD",
       "time": "HH:MM (24h) from date_played, or null",
       "title": "see per-type rules below",
@@ -60,12 +60,14 @@ Use exactly this shape:
       "itemsGained": [
         {
           "name": "plain item name ONLY — see the naming rules",
-          "category": one of "magic_item", "consumable", "equipment", "story_award", "blessing", "charm", "boon",
+          "category": one of "magic_item", "consumable", "equipment", "story_award", "blessing", "charm", "boon", "copied_spell",
           "rarity": one of "common", "uncommon", "rare", "very rare", "legendary", "artifact" — or null,
           "quantity": number >= 1,
           "cost": per-unit GP paid — or null (purchases only),
           "description": "short, or null",
-          "minorProperty": one of ${MINOR_PROPERTIES.map((p) => `"${p}"`).join(', ')} — or null
+          "minorProperty": one of ${MINOR_PROPERTIES.map((p) => `"${p}"`).join(', ')} — or null,
+          "spellLevel": 1–9 (copied_spell items only) — or null,
+          "copiedFrom": {"source": "scroll" or "player", "partner": "who, for player source"} (copied_spell items only) — or null
         }
       ],
       "itemsLost": [
@@ -92,8 +94,9 @@ CLASSIFYING THE ENTRIES:
    - An entry that contains ONLY sells → just the sell log, no purchase log.
    - EXCEPTION, character creation: the character's FIRST entry, when its notes mention starting equipment or starting gold (the site writes these as "<Class> Starting Equipment: 55GP" or a background name), is NOT a purchase — make ONE "creation" log titled "Character Creation": gpGained = the column value, and any listed starting gear as equipment itemsGained (no costs).
    - Any other PurchaseLogEntry that GAINS gold → a "free" log (purchases can't gain gold).
-5. CharacterLogEntry matching none of the above → "free" (title = adventure_title or "Free Log").
-6. Titles: purchase → "Bought <item>, <item>" (or "Purchase"); sell → "Sold <item>, <item>"; creation → "Character Creation".
+5. "copy_spell" — a Wizard copying spells into their spellbook. THIS IS RARE: most AL logs contain NO such entries at all, and a non-Wizard character (check the class in row 2) essentially never has one — do NOT use this type unless the entry EXPLICITLY says spells were copied/scribed/transcribed into a spellbook (e.g. "Copied Fireball into my spellbook", "Scribing: Shield, Mage Armor", costs that look like 50 gp per spell level with 1–2 downtime days per spell). Shopping bullets that BUY a scroll are purchases, not copies; a scroll listed as loot is a session item. When in doubt, use "free" and keep the notes. When it genuinely is one: each spell is an itemsGained entry with category "copied_spell", name = the PLAIN spell name (never "Spell Scroll of X"), "spellLevel" 1–9 (cantrips can't be copied), and "copiedFrom" = {"source":"scroll"} — adding an itemsLost entry ("Spell Scroll of <spell>", reason "used") ONLY when the notes say the copy came from a scroll the character owned — or {"source":"player","partner":"<who>"}, or null when the notes don't say. gpLost/downtimeSpent come from the entry's own columns as usual. Title: "Copied <spell>, <spell>".
+6. CharacterLogEntry matching none of the above → "free" (title = adventure_title or "Free Log").
+7. Titles: purchase → "Bought <item>, <item>" (or "Purchase"); sell → "Sold <item>, <item>"; creation → "Character Creation".
 
 ITEM NAMING — get this exactly right:
 - "name" is ONLY the plain D&D item name. Never leave quantities, prices or verbs in it — quantity markers ("(x1)", "x20", "2x", a leading count) become "quantity"; price notes ("= 5GP", "(10GP)", "- 10GP") become "cost"/"salePrice"; verbs like "Buy"/"Sell"/"Sold" drop off:

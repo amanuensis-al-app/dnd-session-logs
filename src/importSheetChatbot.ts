@@ -1,5 +1,6 @@
 import type {
   Character,
+  CopiedSpellSource,
   GainedItem,
   ItemCategory,
   LogEntry,
@@ -20,7 +21,7 @@ import { lookupCatalog, normalizeKey, type AlImportResult } from './importAlLog'
 import { baseNameKey, canonicalConsumable, characterNameFromFile } from './importSheetLog';
 import { lookupKnownMagicItem } from './magicItemLookup';
 import { expandPacks } from './packs';
-import { canonicalizeSpellScrollForImport } from './spells';
+import { canonicalizeSpellScrollForImport, lookupSpell } from './spells';
 import { parseLooseDate } from './importText';
 
 /**
@@ -249,11 +250,15 @@ export function parseChatbotImportReply(reply: string, opts: ChatbotReplyOptions
     if (rawRarity && !rarity) warnings.push(`"${label}": "${name}" had an unknown rarity "${rawRarity}" — left blank.`);
 
     // Spell scrolls unify + take their level-derived rarity (import priority).
-    const scroll = canonicalizeSpellScrollForImport(name, rarity);
-    if (scroll.isSpellScroll) {
-      name = scroll.name;
-      rarity = scroll.rarity;
-      category = 'consumable';
+    // Copied spells are exempt: they're PLAIN spell names, and a chatbot that wrote
+    // "Spell Scroll of X" for one must not get it recategorized into a consumable.
+    if (category !== 'copied_spell') {
+      const scroll = canonicalizeSpellScrollForImport(name, rarity);
+      if (scroll.isSpellScroll) {
+        name = scroll.name;
+        rarity = scroll.rarity;
+        category = 'consumable';
+      }
     }
     if (category === 'consumable') {
       const c = canonicalConsumable(name, rarity);
@@ -280,16 +285,50 @@ export function parseChatbotImportReply(reply: string, opts: ChatbotReplyOptions
     const rawProperty = str(item.minorProperty);
     const minorProperty = MINOR_PROPERTIES.find((p) => p.toLowerCase() === rawProperty?.toLowerCase());
 
+    // Copied spells (Wizard spellbook entries): plain spell name + level 1–9 +
+    // where it was copied from. The spell list backfills a missing level; the
+    // description falls back to the same auto-text the Copy Spell form writes.
+    let spellLevel: number | undefined;
+    let copiedFrom: CopiedSpellSource | undefined;
+    if (category === 'copied_spell') {
+      const lvl = Math.round(numeric(item.spellLevel) ?? lookupSpell(name)?.level ?? NaN);
+      if (Number.isFinite(lvl) && lvl >= 1 && lvl <= 9) spellLevel = lvl;
+      else {
+        warnings.push(
+          `"${label}": copied spell "${name}" has no valid level (1–9) — set it by editing the log.`,
+        );
+      }
+      const rawFrom = item.copiedFrom;
+      if (rawFrom && typeof rawFrom === 'object') {
+        const src = str((rawFrom as Record<string, unknown>).source)?.toLowerCase();
+        const partner = str((rawFrom as Record<string, unknown>).partner);
+        if (src === 'scroll') copiedFrom = { source: 'scroll' };
+        else if (src === 'player') copiedFrom = { source: 'player', partner };
+      }
+    }
+
     const gain: GainedItem = {
       id: stacked ? stackedItemId({ category, name, rarity: category === 'consumable' ? rarity : undefined }) : newId(),
       name,
       category,
       rarity,
       quantity,
-      description: stacked ? undefined : str(item.description),
+      description:
+        stacked
+          ? undefined
+          : (str(item.description) ??
+            (copiedFrom
+              ? copiedFrom.source === 'scroll'
+                ? 'Copied from a spell scroll'
+                : copiedFrom.partner
+                  ? `Copied from ${copiedFrom.partner}`
+                  : undefined
+              : undefined)),
       minorProperty: category === 'magic_item' ? minorProperty : undefined,
       requiresAttunement: known?.requiresAttunement,
       cost: cost !== undefined ? Math.max(0, cost) : undefined,
+      spellLevel,
+      copiedFrom,
     };
     if (stacked) {
       // expandPacks is a no-op for anything that isn't a Pack name (same object back),
