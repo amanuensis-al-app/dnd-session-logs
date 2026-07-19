@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import type { AttunementState, Character, DerivedStats, InventoryItem, LogEntry } from '../types';
 import { STACKED_CATEGORIES, stackedItemId } from '../types';
-import { formatGp, knownValues, logsForCharacter } from '../derive';
+import { knownValues, logsForCharacter } from '../derive';
 import { Inventory } from './Inventory';
 import { Prep } from './Prep';
 import { LogHistory } from './LogHistory';
 import { LogForm } from './LogForm';
 import { AddLogFromText } from './AddLogFromText';
 import { CharacterAvatar } from './CharacterAvatar';
+import { GpAmount } from './GpAmount';
 import { AvatarEditor } from './AvatarEditor';
 import { CharacterReport } from './CharacterReport';
 import type { ItemEditChanges } from './ItemEditModal';
@@ -25,6 +26,11 @@ interface Props {
   onSaveLog: (log: LogEntry) => void;
   onDeleteLog: (logId: string) => void;
   onBack: () => void;
+  /** Downloads just this character + their own logs as a backup JSON file. */
+  onBackupCharacter: () => void;
+  /** Opens the restore-file picker scoped to this character (App.tsx owns the
+   * shared file input and the replace/merge modal, same as the header's Restore All). */
+  onRestoreCharacter: () => void;
 }
 
 export function CharacterSheet({
@@ -36,6 +42,8 @@ export function CharacterSheet({
   onSaveLog,
   onDeleteLog,
   onBack,
+  onBackupCharacter,
+  onRestoreCharacter,
 }: Props) {
   const [tab, setTab] = useState<'inventory' | 'prep' | 'logs'>('inventory');
   const [logDraft, setLogDraft] = useState<LogDraftState>(null);
@@ -215,9 +223,25 @@ export function CharacterSheet({
                   </div>
                 </div>
               </div>
-              <button className="btn btn-ghost" onClick={() => setEditing(true)}>
-                Edit
-              </button>
+              <div className="sheet-header-actions">
+                <button
+                  className="btn btn-ghost"
+                  onClick={onBackupCharacter}
+                  title={`Download a backup of just ${character.name}'s data as JSON`}
+                >
+                  Backup Character
+                </button>
+                <button
+                  className="btn btn-ghost"
+                  onClick={onRestoreCharacter}
+                  title={`Restore ${character.name}'s data from a backup file`}
+                >
+                  Restore Character
+                </button>
+                <button className="btn btn-ghost" onClick={() => setEditing(true)}>
+                  Edit
+                </button>
+              </div>
             </div>
             <div className="stat-row">
               <div className="stat">
@@ -225,7 +249,9 @@ export function CharacterSheet({
                 <div className="stat-label">Level</div>
               </div>
               <div className="stat">
-                <div className="stat-value">{formatGp(derived.gp)}</div>
+                <div className="stat-value">
+                  <GpAmount value={derived.gp} />
+                </div>
                 <div className="stat-label">GP</div>
               </div>
               <div className="stat">

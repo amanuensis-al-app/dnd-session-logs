@@ -3,9 +3,12 @@ import type { Character, DerivedStats, LogEntry, LogType } from '../types';
 import { LOG_TYPE_LABELS, newId } from '../types';
 import { deriveCharacter, formatGp } from '../derive';
 import { importAlLog, type AlImportResult } from '../importAlLog';
+import { prepareBackupImport, type BackupImportResult } from '../importBackup';
+import { validateBundle } from '../db';
 import { tierForLevel } from '../tiers';
 import { Modal } from './Modal';
 import { CharacterAvatar } from './CharacterAvatar';
+import { GpAmount } from './GpAmount';
 import { ImportLogSheet } from './ImportLogSheet';
 
 interface Props {
@@ -14,9 +17,19 @@ interface Props {
   onOpen: (characterId: string) => void;
   onCreate: (character: Character) => void;
   onImport: (character: Character, logs: LogEntry[]) => void;
+  /** Adds one or more brand-new characters + logs from a backup file — see
+   * importBackup.ts; never overwrites anything existing. */
+  onImportBackup: (characters: Character[], logs: LogEntry[]) => void;
 }
 
-export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate, onImport }: Props) {
+export function CharacterList({
+  characters,
+  derivedByCharacter,
+  onOpen,
+  onCreate,
+  onImport,
+  onImportBackup,
+}: Props) {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
   const [species, setSpecies] = useState('');
@@ -24,8 +37,10 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
   const [importPreview, setImportPreview] = useState<{ title: string; result: AlImportResult } | null>(null);
   /** Log-sheet file waiting in the engine-chooser modal (Quick Import vs AI chatbot). */
   const [sheetImport, setSheetImport] = useState<{ csvText: string; fileName: string } | null>(null);
+  const [backupImportPreview, setBackupImportPreview] = useState<BackupImportResult | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const importKindRef = useRef<'al' | 'sheet'>('al');
+  const backupImportInputRef = useRef<HTMLInputElement>(null);
   // "Import Log Sheet" reads the owner's own private log-sheet format — not something
   // a random AL Tracker user would have. Hidden behind typing R R Q anywhere on this
   // screen (not while typing in a field) so it doesn't confuse everyone else.
@@ -75,6 +90,20 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
     }
   }
 
+  async function handleBackupImportFile(file: File) {
+    try {
+      const bundle = validateBundle(JSON.parse(await file.text()));
+      setBackupImportPreview(
+        prepareBackupImport(
+          bundle,
+          characters.map((c) => c.name),
+        ),
+      );
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Could not read that file.');
+    }
+  }
+
   const preview =
     importPreview && deriveCharacter(importPreview.result.character, importPreview.result.logs);
   const typeCounts =
@@ -118,10 +147,28 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
               Import Log Sheet
             </button>
           )}
+          <button
+            className="btn btn-ghost"
+            onClick={() => backupImportInputRef.current?.click()}
+            title="Import character(s) from an AL Tracker backup file (Backup All or Backup Character) — always added as new, never overwrites anything"
+          >
+            Import Backup
+          </button>
           <button className="btn btn-primary" onClick={() => setCreating((v) => !v)}>
             {creating ? 'Cancel' : '+ New Character'}
           </button>
         </div>
+        <input
+          ref={backupImportInputRef}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleBackupImportFile(file);
+            e.target.value = '';
+          }}
+        />
         <input
           ref={importInputRef}
           type="file"
@@ -204,7 +251,9 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
                   <span>
                     <strong>Lv {d.level}</strong>
                   </span>
-                  <span>{formatGp(d.gp)} gp</span>
+                  <span>
+                    <GpAmount value={d.gp} /> gp
+                  </span>
                   <span>{d.downtimeDays} downtime</span>
                   <span>
                     {d.inventory.filter((i) => i.category === 'magic_item').length} magic items
@@ -271,6 +320,57 @@ export function CharacterList({ characters, derivedByCharacter, onOpen, onCreate
               }}
             >
               Import Character
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {backupImportPreview && (
+        <Modal title="Import from Backup" onClose={() => setBackupImportPreview(null)}>
+          <p>
+            This file contains <strong>{backupImportPreview.characters.length}</strong> character
+            {backupImportPreview.characters.length === 1 ? '' : 's'} and{' '}
+            <strong>{backupImportPreview.logs.length}</strong> log(s).
+          </p>
+          <ul className="import-warnings">
+            {backupImportPreview.characters.map((c) => (
+              <li key={c.id}>
+                {c.name}
+                {[c.species, c.class].filter(Boolean).length > 0 &&
+                  ` — ${[c.species, c.class].filter(Boolean).join(' · ')}`}
+              </li>
+            ))}
+          </ul>
+          {backupImportPreview.renames.length > 0 && (
+            <>
+              <p className="muted">Renamed to avoid clashing with a character you already have:</p>
+              <ul className="import-warnings">
+                {backupImportPreview.renames.map((r, i) => (
+                  <li key={i}>
+                    {r.from} → {r.to}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          <p className="muted">
+            Imported as brand-new character{backupImportPreview.characters.length === 1 ? '' : 's'} —
+            nothing you already have is changed or overwritten.
+          </p>
+          <div className="modal-actions">
+            <button className="btn btn-ghost" onClick={() => setBackupImportPreview(null)}>
+              Cancel
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                onImportBackup(backupImportPreview.characters, backupImportPreview.logs);
+                setBackupImportPreview(null);
+              }}
+            >
+              Import {backupImportPreview.characters.length === 1
+                ? 'Character'
+                : `${backupImportPreview.characters.length} Characters`}
             </button>
           </div>
         </Modal>

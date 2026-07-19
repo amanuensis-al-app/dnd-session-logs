@@ -26,6 +26,7 @@ import {
 } from '../types';
 import { CREATION_BACKGROUNDS, CREATION_CLASSES, ITEM_CATALOG } from '../catalog';
 import type { CreationOption } from '../catalog';
+import { expandPacks } from '../packs';
 import { MagicItemNameField } from './MagicItemNameField';
 import { formatGp, sortLogs } from '../derive';
 import { costForSpellLevel, rarityForSpellLevel, type SpellDefinition } from '../spells';
@@ -495,26 +496,28 @@ export function LogForm({
       createdAt: existingLog?.createdAt ?? Date.now(),
     };
 
-    const gainedItems: GainedItem[] = gains
-      .filter((g) => g.name.trim())
-      .map((g) => {
-        const name = g.name.trim();
-        const rarity = RARITY_CATEGORIES.includes(g.category) ? g.rarity : undefined;
-        const stacked = STACKED_CATEGORIES.includes(g.category);
-        return {
-          // Stacked categories always recompute their content-derived id, so renames
-          // re-bucket naturally; instance ids of other categories are preserved forever.
-          id: stacked ? stackedItemId({ category: g.category, name, rarity }) : (g.id ?? newId()),
-          name,
-          category: g.category,
-          rarity,
-          quantity: Math.max(1, Math.round(num(g.quantity))),
-          description: stacked ? undefined : g.description.trim() || undefined,
-          minorProperty: g.category === 'magic_item' && g.minorProperty ? g.minorProperty : undefined,
-          requiresAttunement: g.category === 'magic_item' ? g.requiresAttunement : undefined,
-          cost: type === 'purchase' && g.cost.trim() !== '' ? Math.max(0, num(g.cost)) : undefined,
-        };
-      });
+    const gainedItems: GainedItem[] = expandPacks(
+      gains
+        .filter((g) => g.name.trim())
+        .map((g) => {
+          const name = g.name.trim();
+          const rarity = RARITY_CATEGORIES.includes(g.category) ? g.rarity : undefined;
+          const stacked = STACKED_CATEGORIES.includes(g.category);
+          return {
+            // Stacked categories always recompute their content-derived id, so renames
+            // re-bucket naturally; instance ids of other categories are preserved forever.
+            id: stacked ? stackedItemId({ category: g.category, name, rarity }) : (g.id ?? newId()),
+            name,
+            category: g.category,
+            rarity,
+            quantity: Math.max(1, Math.round(num(g.quantity))),
+            description: stacked ? undefined : g.description.trim() || undefined,
+            minorProperty: g.category === 'magic_item' && g.minorProperty ? g.minorProperty : undefined,
+            requiresAttunement: g.category === 'magic_item' ? g.requiresAttunement : undefined,
+            cost: type === 'purchase' && g.cost.trim() !== '' ? Math.max(0, num(g.cost)) : undefined,
+          };
+        }),
+    );
 
     const lostItems = losses
       .filter((l) => l.itemId)

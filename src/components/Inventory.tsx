@@ -21,6 +21,18 @@ interface Props {
 
 export function Inventory({ character, derived, onToggleMark, onEditItem }: Props) {
   const [editing, setEditing] = useState<InventoryItem | null>(null);
+  // Which category sections are collapsed. Local to this mount (like LogForm's own
+  // minimise state) — the Inventory tab unmounts when you switch away, so this resets
+  // on return; harmless since nothing here is unsaved draft data.
+  const [collapsed, setCollapsed] = useState<Set<ItemCategory>>(new Set());
+  function toggleCollapsed(category: ItemCategory) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      return next;
+    });
+  }
   // remaining < 0 means more was lost/used than ever gained — an invalid log somewhere.
   // Show those with a warning instead of hiding them, so the user can find and fix it.
   const visibleItems = derived.allItems.filter((i) => i.remaining !== 0);
@@ -61,11 +73,21 @@ export function Inventory({ character, derived, onToggleMark, onEditItem }: Prop
       {ITEM_CATEGORIES.map((category) => {
         const items = byCategory.get(category);
         if (!items?.length) return null;
+        const isCollapsed = collapsed.has(category);
         return (
           <section key={category} className="card inventory-section">
             <h2>
-              {CATEGORY_LABELS[category]} <span className="muted">({items.length})</span>
+              <button
+                type="button"
+                className="inventory-section-toggle"
+                onClick={() => toggleCollapsed(category)}
+                title={isCollapsed ? 'Expand' : 'Collapse'}
+              >
+                <span className={`chevron${isCollapsed ? ' chevron-collapsed' : ''}`}>▾</span>
+                {CATEGORY_LABELS[category]} <span className="muted">({items.length})</span>
+              </button>
             </h2>
+            {!isCollapsed && (
             <ul className="inventory-items">
               {items.map((item) => {
                 const equippable = EQUIPPABLE_CATEGORIES.includes(item.category);
@@ -117,6 +139,7 @@ export function Inventory({ character, derived, onToggleMark, onEditItem }: Prop
                 );
               })}
             </ul>
+            )}
           </section>
         );
       })}

@@ -107,6 +107,26 @@ export function formatGp(value: number): string {
 }
 
 /**
+ * Splits a GP amount into a whole-number part and a (sp/cp) fractional part, e.g.
+ * 144067.31 → { sign: '', whole: '144,067', fraction: '31' } — for displays that
+ * print the fraction smaller than the whole number (components/GpAmount.tsx), so
+ * the number that actually conveys "how rich is this character" reads at a glance.
+ * `fraction` is null for a whole GP amount (nothing to print smaller).
+ */
+export function formatGpParts(value: number): { sign: string; whole: string; fraction: string | null } {
+  const rounded = Math.round(value * 100) / 100;
+  const sign = rounded < 0 ? '−' : '';
+  const abs = Math.abs(rounded);
+  const whole = Math.trunc(abs);
+  const fraction = Math.round((abs - whole) * 100);
+  return {
+    sign,
+    whole: whole.toLocaleString(),
+    fraction: fraction === 0 ? null : String(fraction).padStart(2, '0'),
+  };
+}
+
+/**
  * One display line per lost item name + reason. A stack loss is stored split across
  * the gained-item instances it drew from (FIFO); readers only care about the total.
  */

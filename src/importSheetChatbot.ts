@@ -19,6 +19,7 @@ import {
 import { lookupCatalog, normalizeKey, type AlImportResult } from './importAlLog';
 import { baseNameKey, canonicalConsumable, characterNameFromFile } from './importSheetLog';
 import { lookupKnownMagicItem } from './magicItemLookup';
+import { expandPacks } from './packs';
 import { canonicalizeSpellScrollForImport } from './spells';
 import { parseLooseDate } from './importText';
 
@@ -196,12 +197,14 @@ export function parseSheetChatbotReply(reply: string, fileName?: string): AlImpo
   const stacks: { id: string; key: string; category: ItemCategory; remaining: number }[] = [];
   const gainedMagic: { keys: string[]; baseKey: string; id: string; remaining: number }[] = [];
 
-  /** Chatbot item → GainedItem with the import-path canonicalizations applied. */
-  function buildGain(item: Record<string, unknown>, logType: LogType, label: string): GainedItem | null {
+  /** Chatbot item → GainedItem(s) with the import-path canonicalizations applied.
+   * Returns more than one item when the chatbot reported a Pack (see packs.ts) — its
+   * contents replace it, so the pack name itself is never registered as a stack. */
+  function buildGain(item: Record<string, unknown>, logType: LogType, label: string): GainedItem[] {
     let name = str(item.name);
     if (!name) {
       warnings.push(`"${label}": skipped a gained item without a name.`);
-      return null;
+      return [];
     }
     let category = str(item.category)?.toLowerCase().replace(/[\s-]+/g, '_') as ItemCategory | undefined;
     if (!category || !ITEM_CATEGORIES.includes(category)) {
@@ -251,18 +254,23 @@ export function parseSheetChatbotReply(reply: string, fileName?: string): AlImpo
       cost: cost !== undefined ? Math.max(0, cost) : undefined,
     };
     if (stacked) {
-      const existing = stacks.find((s) => s.id === gain.id);
-      if (existing) existing.remaining += quantity;
-      else stacks.push({ id: gain.id, key: normalizeKey(name), category, remaining: quantity });
-    } else {
-      gainedMagic.push({
-        keys: [normalizeKey(name)],
-        baseKey: baseNameKey(name),
-        id: gain.id,
-        remaining: quantity,
-      });
+      // expandPacks is a no-op for anything that isn't a Pack name (same object back),
+      // so this is safe to run on every stacked gain unconditionally.
+      const expanded = expandPacks([gain]);
+      for (const g of expanded) {
+        const existing = stacks.find((s) => s.id === g.id);
+        if (existing) existing.remaining += g.quantity;
+        else stacks.push({ id: g.id, key: normalizeKey(g.name), category: g.category, remaining: g.quantity });
+      }
+      return expanded;
     }
-    return gain;
+    gainedMagic.push({
+      keys: [normalizeKey(name)],
+      baseKey: baseNameKey(name),
+      id: gain.id,
+      remaining: quantity,
+    });
+    return [gain];
   }
 
   /** Match a lost item by name against earlier gains: canonical stacks first
@@ -331,8 +339,7 @@ export function parseSheetChatbotReply(reply: string, fileName?: string): AlImpo
     const rawGains = Array.isArray(log.itemsGained) ? log.itemsGained : [];
     const gains = rawGains
       .filter((i): i is Record<string, unknown> => typeof i === 'object' && i !== null)
-      .map((i) => buildGain(i, type, label))
-      .filter((g): g is GainedItem => g !== null);
+      .flatMap((i) => buildGain(i, type, label));
     const rawLosses = Array.isArray(log.itemsLost) ? log.itemsLost : [];
     const losses = rawLosses
       .filter((i): i is Record<string, unknown> => typeof i === 'object' && i !== null)

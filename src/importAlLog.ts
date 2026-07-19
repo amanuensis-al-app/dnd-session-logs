@@ -9,6 +9,7 @@ import type {
 import { newId, RARITIES, stackedItemId } from './types';
 import { ITEM_CATALOG, type CatalogItem } from './catalog';
 import { lookupKnownMagicItem } from './magicItemLookup';
+import { expandPacks } from './packs';
 import { canonicalizeSpellScrollForImport, resolveSpellScroll } from './spells';
 
 /**
@@ -419,21 +420,25 @@ export function importAlLog(csvText: string): AlImportResult {
     return null;
   }
 
+  // expandPacks last: a Pack bullet (e.g. "* Burglar's Pack") reads here as one
+  // equipment GainedItem, then gets unpacked into its contents before the log is built.
   function notesItemsToGained(items: NotesItem[], withCost: boolean): GainedItem[] {
-    return items.map((it) => {
-      const rarity = it.category === 'magic_item' || it.category === 'consumable' ? it.rarity : undefined;
-      const stacked = it.category === 'consumable' || it.category === 'equipment';
-      return {
-        id: stacked
-          ? stackedItemId({ category: it.category, name: it.name, rarity })
-          : newId(),
-        name: it.name,
-        category: it.category,
-        rarity,
-        quantity: it.quantity,
-        cost: withCost && it.unitCost !== undefined ? it.unitCost : undefined,
-      };
-    });
+    return expandPacks(
+      items.map((it) => {
+        const rarity = it.category === 'magic_item' || it.category === 'consumable' ? it.rarity : undefined;
+        const stacked = it.category === 'consumable' || it.category === 'equipment';
+        return {
+          id: stacked
+            ? stackedItemId({ category: it.category, name: it.name, rarity })
+            : newId(),
+          name: it.name,
+          category: it.category,
+          rarity,
+          quantity: it.quantity,
+          cost: withCost && it.unitCost !== undefined ? it.unitCost : undefined,
+        };
+      }),
+    );
   }
 
   const logs: LogEntry[] = [];

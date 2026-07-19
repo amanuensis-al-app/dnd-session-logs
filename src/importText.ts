@@ -9,6 +9,7 @@ import {
 } from './types';
 import { CONSUMABLE_NAME_RE, lookupCatalog } from './importAlLog';
 import { lookupKnownMagicItem } from './magicItemLookup';
+import { expandPacks } from './packs';
 import { canonicalizeSpellScrollForText } from './spells';
 
 /**
@@ -109,7 +110,7 @@ function buildSessionLog(characterId: string, f: DraftFields): LogEntry {
     downtimeGained: Math.max(0, f.downtimeGained ?? 10),
     downtimeSpent: 0,
     levelGained: Math.max(0, Math.round(f.levelsGained ?? 1)),
-    itemsGained: f.items,
+    itemsGained: expandPacks(f.items),
     itemsLost: [],
     createdAt: Date.now(),
   };

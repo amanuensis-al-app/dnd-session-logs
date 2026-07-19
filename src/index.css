@@ -349,6 +349,18 @@ textarea:focus {
 .character-card-name {
   font-size: 1.1rem;
   font-weight: 700;
+  transition: text-shadow 0.15s;
+}
+
+/* A second, tier-independent hover cue: the tier glow (box-shadow above) is much
+ * fainter on low tiers than high ones by design (it echoes the rarity scale), so on
+ * its own a T0/T1 card barely reacts to hover. The name glowing gives every card an
+ * equally noticeable hover response regardless of tier. */
+.character-card:hover .character-card-name {
+  text-shadow:
+    0 0 4px #fff3dd,
+    0 0 10px var(--accent-strong),
+    0 0 22px var(--accent-strong);
 }
 
 .character-card-sub {
@@ -388,6 +400,13 @@ textarea:focus {
   display: flex;
   align-items: center;
   gap: 0.9rem;
+}
+
+.sheet-header-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .sheet-avatar-edit {
@@ -483,6 +502,14 @@ textarea:focus {
   color: var(--accent-strong);
 }
 
+/* The sp/cp fraction of a GP amount (GpAmount.tsx) prints smaller than the whole
+ * number wherever it's used — em-sized so it scales with whatever context it's in
+ * (a big stat-value, a small character-card-stats line, …). */
+.gp-fraction {
+  font-size: 0.65em;
+  opacity: 0.8;
+}
+
 .stat-label {
   font-size: 0.75rem;
   text-transform: uppercase;
@@ -532,6 +559,33 @@ textarea:focus {
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
+}
+
+.inventory-section-toggle {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  width: 100%;
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.inventory-section-toggle .chevron {
+  display: inline-block;
+  font-size: 0.8em;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+.inventory-section-toggle .chevron-collapsed {
+  transform: rotate(-90deg);
 }
 
 .inventory-items {

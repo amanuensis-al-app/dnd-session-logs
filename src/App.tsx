@@ -79,6 +79,10 @@ export default function App() {
   const [view, setView] = useState<View>({ screen: 'list' });
   const [hasUnbackedChanges, setHasUnbackedChanges] = useState(readHasUnbackedChanges);
   const [restore, setRestore] = useState<RestoreStep>(null);
+  // Which character a Restore flow is scoped to (set right before the file picker
+  // opens), or undefined for the whole-collection "Restore All". Read by
+  // handleRestoreFile/applyRestore once the user picks a file.
+  const [restoreScope, setRestoreScope] = useState<string | undefined>(undefined);
   const restoreInputRef = useRef<HTMLInputElement>(null);
 
   function markChanged() {
@@ -136,6 +140,18 @@ export default function App() {
     setView({ screen: 'character', characterId: character.id });
   }
 
+  /** "Import Backup" — one or more brand-new characters + logs, already prepared
+   * (fresh ids, clash-free names) by importBackup.ts. Jumps to the character page
+   * only when there's exactly one; a whole-collection backup just adds to the list. */
+  async function importBackup(newCharacters: Character[], newLogs: LogEntry[]) {
+    for (const character of newCharacters) await db.putCharacter(character);
+    for (const log of newLogs) await db.putLog(log);
+    setCharacters((prev) => [...prev, ...newCharacters]);
+    setLogs((prev) => [...prev, ...newLogs]);
+    markChanged();
+    if (newCharacters.length === 1) setView({ screen: 'character', characterId: newCharacters[0].id });
+  }
+
   async function saveLog(log: LogEntry) {
     await db.putLog(log);
     setLogs((prev) => {
@@ -154,19 +170,48 @@ export default function App() {
     markChanged();
   }
 
-  async function handleBackup() {
-    const bundle = await db.exportData();
+  function downloadBundle(bundle: ExportBundle, filename: string) {
     const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `al-tracker-backup-${bundle.exportedAt.slice(0, 10)}.json`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function handleBackup() {
+    const bundle = await db.exportData();
+    downloadBundle(bundle, `al-tracker-backup-${bundle.exportedAt.slice(0, 10)}.json`);
     markBackedUp();
   }
 
-  function handleRestoreClick() {
+  /** Downloads just one character + their own logs. Deliberately does NOT call
+   * markBackedUp() — that flag means ALL data is backed up, which a single
+   * character's export doesn't cover; the global indicator should stay accurate. */
+  function handleBackupCharacter(target: Character) {
+    const exportedAt = new Date().toISOString();
+    const bundle: ExportBundle = {
+      app: 'al-tracker',
+      version: 1,
+      exportedAt,
+      characters: [target],
+      logs: logs.filter((l) => l.characterId === target.id),
+    };
+    const slug =
+      target.name
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'character';
+    downloadBundle(bundle, `al-tracker-${slug}-backup-${exportedAt.slice(0, 10)}.json`);
+  }
+
+  /** Opens the restore flow. `characterId` scopes it to that one character (from a
+   * character sheet's "Restore Character" button); omitted = whole-collection
+   * "Restore All" from the header. */
+  function handleRestoreClick(characterId?: string) {
+    setRestoreScope(characterId);
     if (hasUnbackedChanges) setRestore({ step: 'warn-unbacked' });
     else restoreInputRef.current?.click();
   }
@@ -179,11 +224,46 @@ export default function App() {
       alert(err instanceof Error ? err.message : 'Could not read that file.');
       return;
     }
+    if (restoreScope && (bundle.characters.length !== 1 || bundle.characters[0].id !== restoreScope)) {
+      alert(
+        'This file isn’t a single-character backup for this character. Use a file made by ' +
+          'this character’s own "Backup Character" button, or use "Restore All" from the ' +
+          'Characters screen for whole-collection backups.',
+      );
+      return;
+    }
     setRestore({ step: 'choose-mode', bundle });
+  }
+
+  function closeRestore() {
+    setRestore(null);
+    setRestoreScope(undefined);
   }
 
   async function applyRestore(bundle: ExportBundle, mode: 'replace' | 'merge') {
     setRestore(null);
+    const scope = restoreScope;
+    setRestoreScope(undefined);
+
+    if (scope) {
+      // Scoped to one character: 'replace' wipes just THIS character's existing logs
+      // first (their logs end up exactly matching the bundle); 'merge' upserts by id
+      // and leaves any of this character's logs that aren't in the bundle untouched
+      // — same replace/merge semantics as the whole-collection restore, just scoped
+      // down to the one character (already validated to match this bundle's id).
+      if (mode === 'replace') {
+        for (const log of logs.filter((l) => l.characterId === scope)) await db.deleteLog(log.id);
+      }
+      await db.putCharacter(bundle.characters[0]);
+      for (const l of bundle.logs) await db.putLog(l);
+      const [chars, allLogs] = await Promise.all([db.getAllCharacters(), db.getAllLogs()]);
+      const migrated = await migrateLegacyAttunement(chars, allLogs);
+      setCharacters(migrated.characters.sort((a, b) => a.createdAt - b.createdAt));
+      setLogs(migrated.logs);
+      markChanged();
+      return;
+    }
+
     await db.importData(bundle, mode);
     const [chars, allLogs] = await Promise.all([db.getAllCharacters(), db.getAllLogs()]);
     // An old backup can reintroduce legacy 'not-required' marks — migrate them again.
@@ -213,16 +293,16 @@ export default function App() {
           <button
             className="btn btn-ghost"
             onClick={handleBackup}
-            title="Download a backup of all data as JSON"
+            title="Download a backup of all characters' data as JSON"
           >
-            Backup
+            Backup All
           </button>
           <button
             className="btn btn-ghost"
-            onClick={handleRestoreClick}
+            onClick={() => handleRestoreClick()}
             title="Restore data from a backup file"
           >
-            Restore
+            Restore All
           </button>
           <input
             ref={restoreInputRef}
@@ -249,6 +329,8 @@ export default function App() {
             onSaveLog={saveLog}
             onDeleteLog={removeLog}
             onBack={() => setView({ screen: 'list' })}
+            onBackupCharacter={() => handleBackupCharacter(activeCharacter)}
+            onRestoreCharacter={() => handleRestoreClick(activeCharacter.id)}
           />
         ) : (
           <CharacterList
@@ -257,6 +339,7 @@ export default function App() {
             onOpen={(id) => setView({ screen: 'character', characterId: id })}
             onCreate={saveCharacter}
             onImport={importCharacter}
+            onImportBackup={importBackup}
           />
         )}
       </main>
@@ -274,14 +357,14 @@ export default function App() {
       )}
 
       {restore?.step === 'warn-unbacked' && (
-        <Modal title="Unexported changes" onClose={() => setRestore(null)}>
+        <Modal title="Unexported changes" onClose={closeRestore}>
           <p>
             You have changes that haven't been backed up yet. Restoring can overwrite them, and
             once overwritten they can't be recovered.
           </p>
           <p className="muted">Tip: hit Cancel and use Backup first, then restore safely.</p>
           <div className="modal-actions">
-            <button className="btn btn-ghost" onClick={() => setRestore(null)}>
+            <button className="btn btn-ghost" onClick={closeRestore}>
               Cancel
             </button>
             <button
@@ -298,28 +381,46 @@ export default function App() {
       )}
 
       {restore?.step === 'choose-mode' && (
-        <Modal title="Restore from backup" onClose={() => setRestore(null)}>
-          <p>
-            This backup contains <strong>{restore.bundle.characters.length}</strong> character(s)
-            and <strong>{restore.bundle.logs.length}</strong> log(s).
-          </p>
-          <p className="muted">
-            Replace wipes all current data first. Merge updates by id and is safe to repeat.
-          </p>
+        <Modal
+          title={restoreScope ? `Restore ${restore.bundle.characters[0]?.name ?? 'Character'}` : 'Restore from backup'}
+          onClose={closeRestore}
+        >
+          {restoreScope ? (
+            <>
+              <p>
+                This backup contains <strong>{restore.bundle.characters[0]?.name}</strong>'s data:{' '}
+                <strong>{restore.bundle.logs.length}</strong> log(s).
+              </p>
+              <p className="muted">
+                Replace wipes this character's existing logs first. Merge updates by id and is
+                safe to repeat.
+              </p>
+            </>
+          ) : (
+            <>
+              <p>
+                This backup contains <strong>{restore.bundle.characters.length}</strong> character(s)
+                and <strong>{restore.bundle.logs.length}</strong> log(s).
+              </p>
+              <p className="muted">
+                Replace wipes all current data first. Merge updates by id and is safe to repeat.
+              </p>
+            </>
+          )}
           <div className="modal-actions">
             <button
               className="btn btn-danger"
               onClick={() => applyRestore(restore.bundle, 'replace')}
             >
-              Replace everything
+              {restoreScope ? "Replace this character's logs" : 'Replace everything'}
             </button>
             <button
               className="btn btn-primary"
               onClick={() => applyRestore(restore.bundle, 'merge')}
             >
-              Merge into existing data
+              {restoreScope ? 'Merge into this character' : 'Merge into existing data'}
             </button>
-            <button className="btn btn-ghost" onClick={() => setRestore(null)}>
+            <button className="btn btn-ghost" onClick={closeRestore}>
               Cancel
             </button>
           </div>
