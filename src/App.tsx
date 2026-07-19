@@ -286,14 +286,25 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <button className="app-title" onClick={() => setView({ screen: 'list' })}>
-          <img
-            className="app-title-icon"
-            src={`${import.meta.env.BASE_URL}ama-icon.png`}
-            alt=""
-          />
-          AMAnuensis
-        </button>
+        <div className="app-title-wrap">
+          <button className="app-title" onClick={() => setView({ screen: 'list' })}>
+            <img
+              className="app-title-icon"
+              src={`${import.meta.env.BASE_URL}ama-icon.png`}
+              alt=""
+            />
+            AMAnuensis
+          </button>
+          <a
+            className="app-version"
+            href="https://github.com/EdrickRudy93/dnd-session-logs"
+            target="_blank"
+            rel="noreferrer"
+            title="View on GitHub"
+          >
+            v{__APP_VERSION__}
+          </a>
+        </div>
         <div className="app-header-actions">
           <button
             className="btn btn-ghost"
