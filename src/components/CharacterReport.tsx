@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import type { Character, DerivedStats, InventoryItem, LogEntry } from '../types';
 import {
   CATEGORY_LABELS_SINGULAR,
@@ -83,7 +84,10 @@ export function CharacterReport({ character, derived, logs, onClose }: Props) {
         : 'Not attuned'
       : 'Attunement not required';
 
-  return (
+  // Portaled to <body> so that in print the app root can be display:none'd and the
+  // report printed as a normal static-flow document — absolutely-positioned overlays
+  // don't paginate (they print as one giant page), static flow does.
+  return createPortal(
     <div className="print-report">
       <div className="report-toolbar">
         <strong>Character report — {character.name}</strong>
@@ -96,6 +100,14 @@ export function CharacterReport({ character, derived, logs, onClose }: Props) {
           </button>
         </span>
       </div>
+
+      {/* Print-only watermark: fixed-position elements repeat on every printed page. */}
+      <img
+        className="report-watermark"
+        src={`${import.meta.env.BASE_URL}ama-icon.png`}
+        alt=""
+        aria-hidden
+      />
 
       <div className="report-sheet">
         <header className="report-header">
@@ -217,6 +229,7 @@ export function CharacterReport({ character, derived, logs, onClose }: Props) {
           ))}
         </section>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

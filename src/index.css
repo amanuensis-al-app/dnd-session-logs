@@ -78,6 +78,14 @@ h2 {
   cursor: pointer;
   padding: 0;
   font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.app-title-icon {
+  height: 1.7em;
+  width: 1.7em;
 }
 
 .app-header-actions {
@@ -1255,20 +1263,28 @@ span.item-row-name > * {
   white-space: pre-wrap;
 }
 
-/* Print: keep only the report on the page, drop the toolbar, white margins. */
+/* Print-only: on screen the sheet's opaque background would sit on top of a
+   negative-z-index watermark anyway, so it only renders in print, where the page
+   itself is the backdrop. A real <img> (not a CSS background) so it prints even
+   with "print backgrounds" off; position: fixed makes it repeat on every page. */
+.report-watermark {
+  display: none;
+}
+
+/* Print: keep only the report on the page, drop the toolbar, white margins.
+   The report is portaled to <body> (see CharacterReport.tsx), so the app root can
+   be display:none'd outright and the report printed as a normal static-flow
+   document — absolutely-positioned overlays don't paginate (they print as one
+   giant page), static flow does. Backgrounds go transparent so they can't cover
+   the watermark (the printed page is white anyway). */
 @media print {
-  body * {
-    visibility: hidden;
-  }
-  .print-report,
-  .print-report * {
-    visibility: visible;
+  body > #root {
+    display: none;
   }
   .print-report {
-    position: absolute;
-    inset: 0 0 auto 0;
+    position: static;
     overflow: visible;
-    background: #fff;
+    background: none;
   }
   .report-toolbar {
     display: none;
@@ -1279,6 +1295,17 @@ span.item-row-name > * {
     padding: 0;
     box-shadow: none;
     border-radius: 0;
+    background: none;
+  }
+  .report-watermark {
+    display: block;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 62%;
+    opacity: 0.07;
+    z-index: -1;
   }
   .report-log {
     break-inside: avoid;

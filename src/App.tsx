@@ -287,7 +287,12 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <button className="app-title" onClick={() => setView({ screen: 'list' })}>
-          <span className="app-title-icon">⚔️</span> AMAnuensis
+          <img
+            className="app-title-icon"
+            src={`${import.meta.env.BASE_URL}ama-icon.png`}
+            alt=""
+          />
+          AMAnuensis
         </button>
         <div className="app-header-actions">
           <button

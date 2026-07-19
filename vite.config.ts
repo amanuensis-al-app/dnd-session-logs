@@ -10,7 +10,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg'],
+      includeAssets: ['ama-icon.png', 'ama-icon-192.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'AMAnuensis — D&D Session Logs',
         short_name: 'AMA',
@@ -21,9 +21,15 @@ export default defineConfig({
         display: 'standalone',
         icons: [
           {
-            src: 'icon.svg',
-            sizes: 'any',
-            type: 'image/svg+xml',
+            src: 'ama-icon-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any',
+          },
+          {
+            src: 'ama-icon.png',
+            sizes: '512x512',
+            type: 'image/png',
             purpose: 'any',
           },
         ],
