@@ -355,12 +355,11 @@ textarea:focus {
 /* A second, tier-independent hover cue: the tier glow (box-shadow above) is much
  * fainter on low tiers than high ones by design (it echoes the rarity scale), so on
  * its own a T0/T1 card barely reacts to hover. The name glowing gives every card an
- * equally noticeable hover response regardless of tier. */
+ * equally noticeable hover response regardless of tier. Kept subtle on purpose (a
+ * brighter multi-layer "neon sign" version read as tacky) — one soft, low-opacity
+ * shadow, no bright core. */
 .character-card:hover .character-card-name {
-  text-shadow:
-    0 0 4px #fff3dd,
-    0 0 10px var(--accent-strong),
-    0 0 22px var(--accent-strong);
+  text-shadow: 0 0 6px rgba(212, 169, 104, 0.5);
 }
 
 .character-card-sub {
