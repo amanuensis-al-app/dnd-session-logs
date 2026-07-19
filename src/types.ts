@@ -95,7 +95,9 @@ export type LogType = (typeof LOG_TYPES)[number];
 export const LOG_TYPE_LABELS: Record<LogType, string> = {
   session: 'Session',
   catchup: 'Catch Up',
-  transaction: 'Transaction',
+  // Displayed as "Trade" (the actual AL term, owner correction 2026-07-20); the
+  // internal type id stays 'transaction' — it's stored in every saved log/backup.
+  transaction: 'Trade',
   copy_spell: 'Copy Spell',
   purchase: 'Purchase',
   sell: 'Sell',

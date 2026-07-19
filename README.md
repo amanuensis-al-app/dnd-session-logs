@@ -27,7 +27,7 @@ character's logs in date order. Fix a mistake by deleting the log; totals recomp
 | --- | --- |
 | **Session** | Gain GP / downtime / level / items of any category; may also lose GP and items (e.g. potions drunk mid-session). |
 | **Catch Up** | Spend 10 downtime days, gain 1 level. |
-| **Transaction** | Trade a magic item for another of the same rarity, spend 5 downtime days; records the trading partner. |
+| **Trade** | Trade a magic item for another of the same rarity, spend 5 downtime days; records the trading partner. |
 | **Purchase** | Spend GP, gain equipment. |
 | **Sell** | Sell equipment for GP. The sale price prefills at half of what you paid for it (from your purchase logs), else half the list price, else 0. |
 | **Creation** | Character creation: starting gold and equipment, with 2024 PHB background/class package prefills. |
