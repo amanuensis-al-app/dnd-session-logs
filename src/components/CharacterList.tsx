@@ -122,10 +122,13 @@ export function CharacterList({
       return map;
     }, new Map<LogType, number>());
 
-  // Highest level first, then name (the props come in creation order).
+  // Highest level first, then most sessions played, then name (the props come in
+  // creation order).
   const sorted = [...characters].sort(
     (a, b) =>
       (derivedByCharacter.get(b.id)?.level ?? 1) - (derivedByCharacter.get(a.id)?.level ?? 1) ||
+      (derivedByCharacter.get(b.id)?.sessionsPlayed ?? 0) -
+        (derivedByCharacter.get(a.id)?.sessionsPlayed ?? 0) ||
       a.name.localeCompare(b.name),
   );
 
