@@ -10,6 +10,7 @@ import { Modal } from './Modal';
 import { CharacterAvatar } from './CharacterAvatar';
 import { GpAmount } from './GpAmount';
 import { ImportAlLog } from './ImportAlLog';
+import { ImportCsvLog } from './ImportCsvLog';
 import { ImportLogSheet } from './ImportLogSheet';
 
 interface Props {
@@ -40,9 +41,11 @@ export function CharacterList({
   const [alImport, setAlImport] = useState<{ csvText: string; fileName: string } | null>(null);
   /** Log-sheet file waiting in the engine-chooser modal (Quick Import vs AI chatbot). */
   const [sheetImport, setSheetImport] = useState<{ csvText: string; fileName: string } | null>(null);
+  /** Free-form CSV file waiting in the AI-only chatbot modal (no offline engine). */
+  const [csvImport, setCsvImport] = useState<{ csvText: string; fileName: string } | null>(null);
   const [backupImportPreview, setBackupImportPreview] = useState<BackupImportResult | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
-  const importKindRef = useRef<'al' | 'sheet'>('al');
+  const importKindRef = useRef<'al' | 'sheet' | 'csv'>('al');
   const backupImportInputRef = useRef<HTMLInputElement>(null);
   // "Import Log Sheet" reads the owner's own private log-sheet format — not something
   // a random AMAnuensis user would have. Hidden behind typing R R Q anywhere on this
@@ -82,11 +85,14 @@ export function CharacterList({
   async function handleImportFile(file: File) {
     try {
       const text = await file.text();
-      // Both CSV kinds get an engine choice first (offline parser vs AI chatbot).
+      // AL and log-sheet CSVs get an engine choice first (offline parser vs AI
+      // chatbot); the free-form CSV kind goes straight to the AI-only modal.
       if (importKindRef.current === 'al') {
         setAlImport({ csvText: text, fileName: file.name });
-      } else {
+      } else if (importKindRef.current === 'sheet') {
         setSheetImport({ csvText: text, fileName: file.name });
+      } else {
+        setCsvImport({ csvText: text, fileName: file.name });
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Could not read that file.');
@@ -137,6 +143,16 @@ export function CharacterList({
             title="Import a character from an adventurersleaguelog.com CSV export"
           >
             Import AL Log
+          </button>
+          <button
+            className="btn btn-ghost"
+            onClick={() => {
+              importKindRef.current = 'csv';
+              importInputRef.current?.click();
+            }}
+            title="Import a character from any CSV play log — an AI chatbot works out the format and converts it"
+          >
+            Import CSV Log
           </button>
           {logSheetUnlocked && (
             <button
@@ -288,6 +304,18 @@ export function CharacterList({
           onResult={(result) => {
             setSheetImport(null);
             setImportPreview({ title: 'Import from Log Sheet', result });
+          }}
+        />
+      )}
+
+      {csvImport && (
+        <ImportCsvLog
+          csvText={csvImport.csvText}
+          fileName={csvImport.fileName}
+          onClose={() => setCsvImport(null)}
+          onResult={(result) => {
+            setCsvImport(null);
+            setImportPreview({ title: 'Import from CSV Log', result });
           }}
         />
       )}

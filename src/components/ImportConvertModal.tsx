@@ -10,11 +10,13 @@ interface Props {
   chatbotTitle: string;
   fileName: string;
   /** Muted paragraph under the file name on the choose step. */
-  intro: ReactNode;
+  intro?: ReactNode;
   /** Muted hint at the bottom of the choose step comparing the two engines. */
-  engineHint: ReactNode;
-  /** Runs the offline converter (throws on failure). */
-  quickImport: () => AlImportResult;
+  engineHint?: ReactNode;
+  /** Runs the offline converter (throws on failure). Omit for AI-only sources
+   * (free-form formats no offline heuristic can exist for) — the modal then skips
+   * the engine chooser and opens straight on the chatbot step. */
+  quickImport?: () => AlImportResult;
   /** Self-contained chatbot instructions with the source data embedded. */
   buildPrompt: () => string;
   /** Validates the pasted chatbot reply (throws on failure). */
@@ -29,7 +31,9 @@ interface Props {
  * best-effort parser; "Use an AI Chatbot" is the zero-key flow — copy prepared
  * instructions (CSV embedded) into any chatbot, paste the JSON reply back. Both
  * paths end in the same preview modal; nothing is saved until the user confirms
- * there. Shared by the AL Log import and the (private) log-sheet import.
+ * there. Shared by the AL Log import and the (private) log-sheet import. The
+ * free-form CSV import omits quickImport (no offline heuristic can exist for an
+ * unknown layout), which skips step 1 entirely — the chatbot step IS the modal.
  */
 export function ImportConvertModal({
   title,
@@ -43,7 +47,7 @@ export function ImportConvertModal({
   onResult,
   onClose,
 }: Props) {
-  const [step, setStep] = useState<'choose' | 'chatbot'>('choose');
+  const [step, setStep] = useState<'choose' | 'chatbot'>(quickImport ? 'choose' : 'chatbot');
   const [reply, setReply] = useState('');
   const [copied, setCopied] = useState(false);
 
@@ -68,6 +72,11 @@ export function ImportConvertModal({
     return (
       <Modal title={chatbotTitle} wide onClose={onClose}>
         <div className="text-import">
+          {!quickImport && (
+            <p>
+              <strong>{fileName}</strong>
+            </p>
+          )}
           <ol>
             <li>
               Copy the prepared instructions (the whole CSV is included):{' '}
@@ -88,9 +97,11 @@ export function ImportConvertModal({
             placeholder="Paste the chatbot's reply here…"
           />
           <div className="modal-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setStep('choose')}>
-              ← Back
-            </button>
+            {quickImport && (
+              <button type="button" className="btn btn-ghost" onClick={() => setStep('choose')}>
+                ← Back
+              </button>
+            )}
             <button type="button" className="btn btn-ghost" onClick={onClose}>
               Cancel
             </button>
@@ -122,7 +133,7 @@ export function ImportConvertModal({
         <button type="button" className="btn btn-ghost" onClick={onClose}>
           Cancel
         </button>
-        <button type="button" className="btn" onClick={() => produce(quickImport)}>
+        <button type="button" className="btn" onClick={() => quickImport && produce(quickImport)}>
           ✨ Quick Import
         </button>
         <button type="button" className="btn btn-primary" onClick={() => setStep('chatbot')}>
