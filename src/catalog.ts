@@ -1,4 +1,4 @@
-import type { ItemCategory, Rarity } from './types';
+import type { CreationPick, ItemCategory, Rarity } from './types';
 
 export interface CatalogItem {
   name: string;
@@ -34,6 +34,16 @@ export interface CreationSource {
   name: string;
   /** Option A (equipment package), then Option B (usually gold only), … */
   options: CreationOption[];
+}
+
+/** Display label for a stored CreationPick: "Acolyte (Option A)" — the option
+ * letter is dropped when the source only has one option (Custom Background), or
+ * when the pick's name isn't in the catalog (shouldn't happen; degrade gracefully). */
+export function creationPickLabel(pick: CreationPick, kind: 'background' | 'class'): string {
+  const sources = kind === 'background' ? CREATION_BACKGROUNDS : CREATION_CLASSES;
+  const source = sources.find((s) => s.name === pick.name);
+  if (!source || source.options.length <= 1) return pick.name;
+  return `${pick.name} (Option ${String.fromCharCode(65 + pick.option)})`;
 }
 
 /**

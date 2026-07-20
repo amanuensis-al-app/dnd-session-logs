@@ -243,7 +243,7 @@ export function CharacterList({
         <div className="empty-state">
           <p>No characters yet.</p>
           <p className="muted">
-            Create a character, then use a <strong>Creation</strong> log to record their
+            Create a character, then use a <strong>Starting Log</strong> to record their
             starting gold and equipment.
           </p>
         </div>

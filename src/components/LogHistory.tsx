@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { DerivedStats, LogEntry, LogType } from '../types';
 import { CATEGORY_LABELS_SINGULAR, LOG_TYPE_LABELS, LOSS_REASON_LABELS } from '../types';
 import { formatGp, groupedLosses } from '../derive';
+import { creationPickLabel } from '../catalog';
 
 interface Props {
   /** Already filtered to one character and sorted in replay order. */
@@ -56,7 +57,7 @@ export function LogHistory({
       <div className="empty-state">
         <p>No logs yet.</p>
         <p className="muted">
-          Tip: start with a <strong>Creation</strong> log recording the character's starting
+          Tip: start with a <strong>Starting Log</strong> recording the character's starting
           gold and equipment.
         </p>
       </div>
@@ -151,6 +152,22 @@ export function LogHistory({
             {log.tradePartner && (
               <div className="log-line">
                 Traded with <strong>{log.tradePartner}</strong>
+              </div>
+            )}
+            {(log.creationBackground || log.creationClass) && (
+              <div className="log-line muted">
+                {log.creationBackground && (
+                  <>
+                    Background:{' '}
+                    <strong>{creationPickLabel(log.creationBackground, 'background')}</strong>
+                  </>
+                )}
+                {log.creationBackground && log.creationClass && ' · '}
+                {log.creationClass && (
+                  <>
+                    Class: <strong>{creationPickLabel(log.creationClass, 'class')}</strong>
+                  </>
+                )}
               </div>
             )}
             {(log.dm || log.location) && (

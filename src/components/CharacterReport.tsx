@@ -7,6 +7,7 @@ import {
   LOSS_REASON_LABELS,
 } from '../types';
 import { formatGp, groupedLosses } from '../derive';
+import { creationPickLabel } from '../catalog';
 import {
   ATTUNEMENT_CAP,
   PREP_POOL_LABELS,
@@ -173,9 +174,16 @@ export function CharacterReport({ character, derived, logs, onClose }: Props) {
                 </strong>{' '}
                 [{LOG_TYPE_LABELS[log.type]}] {log.title || '(untitled)'}
               </div>
-              {(log.dm || log.location || log.tradePartner) && (
+              {(log.dm || log.location || log.tradePartner || log.creationBackground || log.creationClass) && (
                 <div className="report-muted">
                   {log.tradePartner && <>Traded with {log.tradePartner}</>}
+                  {log.creationBackground && (
+                    <>
+                      Background: {creationPickLabel(log.creationBackground, 'background')}
+                      {log.creationClass ? ' · ' : ''}
+                    </>
+                  )}
+                  {log.creationClass && <>Class: {creationPickLabel(log.creationClass, 'class')}</>}
                   {log.dm && (
                     <>
                       DM: {log.dm}

@@ -399,13 +399,23 @@ export function LogForm({
     }
     return drafts;
   });
-  // Creation-specific: which background/option and class/option are selected.
-  // Not stored on the log — picking these just prefills the gold and item rows
-  // below (as the sum of both picks), which stay freely editable afterward.
-  const [creationBackground, setCreationBackground] = useState('');
-  const [creationBgOption, setCreationBgOption] = useState(0);
-  const [creationClass, setCreationClass] = useState('');
-  const [creationClassOption, setCreationClassOption] = useState(0);
+  // Creation ("Starting") log: which background/option and class/option are
+  // selected. Stored on the log (LogEntry.creationBackground/creationClass, added
+  // 2026-07-20) so the choice survives edits — but picking one still just PREFILLS
+  // the gold and item rows below (as the sum of both picks), which stay freely
+  // editable afterward; re-initializing here doesn't re-run the prefill.
+  const [creationBackground, setCreationBackground] = useState(
+    initial?.type === 'creation' ? (initial.creationBackground?.name ?? '') : '',
+  );
+  const [creationBgOption, setCreationBgOption] = useState(
+    initial?.type === 'creation' ? (initial.creationBackground?.option ?? 0) : 0,
+  );
+  const [creationClass, setCreationClass] = useState(
+    initial?.type === 'creation' ? (initial.creationClass?.name ?? '') : '',
+  );
+  const [creationClassOption, setCreationClassOption] = useState(
+    initial?.type === 'creation' ? (initial.creationClass?.option ?? 0) : 0,
+  );
   // Transaction-specific: the item given away and the item received.
   const [tradeLostItemId, setTradeLostItemId] = useState(
     existingLog?.type === 'transaction' ? (existingLog.itemsLost[0]?.itemId ?? '') : '',
@@ -910,6 +920,12 @@ export function LogForm({
           title: base.title || (creationDesc ? `Character Creation (${creationDesc})` : 'Character Creation'),
           gpGained: Math.max(0, num(gpGained)),
           itemsGained: gainedItems,
+          creationBackground: creationBackground
+            ? { name: creationBackground, option: creationBgOption }
+            : undefined,
+          creationClass: creationClass
+            ? { name: creationClass, option: creationClassOption }
+            : undefined,
         };
       }
       case 'free': {

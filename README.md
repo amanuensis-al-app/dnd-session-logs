@@ -30,7 +30,7 @@ character's logs in date order. Fix a mistake by deleting the log; totals recomp
 | **Trade** | Trade a magic item for another of the same rarity, spend 5 downtime days; records the trading partner. |
 | **Purchase** | Spend GP, gain equipment. |
 | **Sell** | Sell equipment for GP. The sale price prefills at half of what you paid for it (from your purchase logs), else half the list price, else 0. |
-| **Creation** | Character creation: starting gold and equipment, with 2024 PHB background/class package prefills. |
+| **Starting Log** | Character creation: starting gold and equipment, with 2024 PHB background/class package prefills — the picked background/class (and option) is kept on the log. |
 | **Free Log** | Anything else: DM rewards, corrections, higher starting levels. |
 
 Notes:

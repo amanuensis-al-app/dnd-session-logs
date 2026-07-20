@@ -101,7 +101,9 @@ export const LOG_TYPE_LABELS: Record<LogType, string> = {
   copy_spell: 'Copy Spell',
   purchase: 'Purchase',
   sell: 'Sell',
-  creation: 'Creation',
+  // Displayed as "Starting Log" (owner correction 2026-07-20 — the more common
+  // term); the internal type id stays 'creation', same deal as transaction/"Trade".
+  creation: 'Starting Log',
   free: 'Free Log',
 };
 
@@ -177,6 +179,16 @@ export interface LostItem {
   salePrice?: number;
 }
 
+/** A 2024 PHB background or class starting package picked on a creation
+ * ("Starting") log — stored so the choice survives edits and shows in displays.
+ * The actual gold/items are the ordinary editable log fields the pick prefilled;
+ * this only remembers WHAT was picked. */
+export interface CreationPick {
+  name: string;
+  /** 0-based index into the source's options in catalog.ts (Option A = 0). */
+  option: number;
+}
+
 export interface LogEntry {
   id: string;
   characterId: string;
@@ -202,6 +214,10 @@ export interface LogEntry {
   location?: string;
   /** Session logs: who ran the table. */
   dm?: string;
+  /** Creation ("Starting") logs: the picked background starting package. */
+  creationBackground?: CreationPick;
+  /** Creation ("Starting") logs: the picked class starting package. */
+  creationClass?: CreationPick;
   createdAt: number;
 }
 
