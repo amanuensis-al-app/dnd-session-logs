@@ -416,6 +416,14 @@ export function LogForm({
   const [creationClassOption, setCreationClassOption] = useState(
     initial?.type === 'creation' ? (initial.creationClass?.option ?? 0) : 0,
   );
+  // Starting level (most tables start at 1; some allow starting higher, e.g. a
+  // Tier 2 one-shot). Stored as the log's ordinary levelGained (starting level − 1)
+  // — this field just presents that as an absolute level instead of a delta.
+  const [creationStartingLevel, setCreationStartingLevel] = useState(() =>
+    String(
+      initial?.type === 'creation' ? Math.min(20, Math.max(1, (initial.levelGained ?? 0) + 1)) : 1,
+    ),
+  );
   // Transaction-specific: the item given away and the item received.
   const [tradeLostItemId, setTradeLostItemId] = useState(
     existingLog?.type === 'transaction' ? (existingLog.itemsLost[0]?.itemId ?? '') : '',
@@ -607,10 +615,12 @@ export function LogForm({
       setLevelGained('0');
     } else if (next === 'creation') {
       setGpGained('0');
+      setDowntimeGained('0');
       setCreationBackground('');
       setCreationBgOption(0);
       setCreationClass('');
       setCreationClassOption(0);
+      setCreationStartingLevel('1');
     } else if (next === 'copy_spell') {
       // Rows start empty, so both auto-filled fields start at 0.
       setGpLost('0');
@@ -915,10 +925,13 @@ export function LogForm({
       }
       case 'creation': {
         const creationDesc = [creationBackground, creationClass].filter(Boolean).join(' / ');
+        const startingLevel = Math.min(20, Math.max(1, Math.round(num(creationStartingLevel)) || 1));
         return {
           ...base,
           title: base.title || (creationDesc ? `Character Creation (${creationDesc})` : 'Character Creation'),
           gpGained: Math.max(0, num(gpGained)),
+          downtimeGained: Math.max(0, num(downtimeGained)),
+          levelGained: startingLevel - 1,
           itemsGained: gainedItems,
           creationBackground: creationBackground
             ? { name: creationBackground, option: creationBgOption }
@@ -964,11 +977,16 @@ export function LogForm({
     (type === 'copy_spell' && num(downtimeSpent) > 0 && downtimeAvailable < num(downtimeSpent));
 
   // Copied spells never appear in the generic gain rows — Copy Spell logs AND Free
-  // Logs both get the dedicated "Spells copied" section instead.
+  // Logs both get the dedicated "Spells copied" section instead. Purchase logs are
+  // gold-for-goods, so equipment/consumable only (no cost field on magic items).
+  // Starting logs get magic_item too — some AL rules grant a starting character a
+  // free magic item at a high enough starting level (owner request 2026-07-21).
   const gainCategories: ItemCategory[] =
-    type === 'purchase' || type === 'creation'
+    type === 'purchase'
       ? ['equipment', 'consumable']
-      : ITEM_CATEGORIES.filter((c) => c !== 'copied_spell');
+      : type === 'creation'
+        ? ['equipment', 'consumable', 'magic_item']
+        : ITEM_CATEGORIES.filter((c) => c !== 'copied_spell');
 
   const showGains =
     type === 'session' || type === 'purchase' || type === 'creation' || type === 'free';
@@ -1210,6 +1228,25 @@ export function LogForm({
         <>
           <div className="form-grid">
             <label>
+              Starting level
+              <select
+                value={creationStartingLevel}
+                onChange={(e) => setCreationStartingLevel(e.target.value)}
+              >
+                {Array.from({ length: 20 }, (_, i) => i + 1).map((lvl) => (
+                  <option key={lvl} value={lvl}>
+                    {lvl}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <p className="muted">
+            Most tables start at level 1 — pick a higher level if yours allows starting
+            further along (e.g. a Tier 2 one-shot).
+          </p>
+          <div className="form-grid">
+            <label>
               Background
               <select
                 value={creationBackground}
@@ -1299,12 +1336,23 @@ export function LogForm({
                 onChange={(e) => setGpGained(e.target.value)}
               />
             </label>
+            <label>
+              Downtime days gained
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={downtimeGained}
+                onChange={(e) => setDowntimeGained(e.target.value)}
+              />
+            </label>
           </div>
           <p className="muted">
             Picking a background and class fills in the gold (sum of both) and item rows —
             adjust them freely, e.g. replace an “(any)” placeholder with the specific tool or
             instrument you chose. If your background isn’t on the list, pick Custom Background
-            and adjust the gold and equipment accordingly.
+            and adjust the gold and equipment accordingly. Starting above level 1 sometimes
+            comes with downtime days too, per your table's rules — add them above if so.
           </p>
         </>
       )}
