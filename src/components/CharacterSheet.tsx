@@ -259,10 +259,8 @@ export function CharacterSheet({
                 <div className="stat-label">Downtime Days</div>
               </div>
               <div className="stat">
-                <div className="stat-value">
-                  {derived.inventory.filter((i) => i.category === 'magic_item').length}
-                </div>
-                <div className="stat-label">Magic Items Owned</div>
+                <div className="stat-value">{derived.sessionsPlayed}</div>
+                <div className="stat-label">Sessions Played</div>
               </div>
             </div>
           </>

@@ -293,6 +293,8 @@ export interface DerivedStats {
   level: number;
   gp: number;
   downtimeDays: number;
+  /** Count of this character's 'session' logs. */
+  sessionsPlayed: number;
   /** Every item this character ever gained, including depleted ones. */
   allItems: InventoryItem[];
   /** Items with remaining > 0, i.e. currently owned. */

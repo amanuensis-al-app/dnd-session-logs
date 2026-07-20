@@ -94,6 +94,7 @@ export function deriveCharacter(character: Character, allLogs: LogEntry[]): Deri
     level: Math.max(1, Math.min(20, level)),
     gp,
     downtimeDays,
+    sessionsPlayed: logs.filter((l) => l.type === 'session').length,
     allItems,
     inventory: allItems.filter((i) => i.remaining > 0),
   };
