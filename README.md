@@ -72,9 +72,18 @@ The AL Log format doesn't record everything, so the import is best-effort:
 
 ```
 npm install
-npm run dev      # dev server
-npm run build    # production build (dist/) with PWA service worker
+npm run dev               # dev server
+npm run build              # production build (dist/) with PWA service worker — serve it (e.g. npm run preview), don't open dist/index.html directly
+npm run build:standalone   # single-file offline build (dist-standalone/index.html) — double-click it, no server or internet needed
 ```
 
-Built with Vite + React + TypeScript. PWA via vite-plugin-pwa (installable, works offline).
+Built with Vite + React + TypeScript. PWA via vite-plugin-pwa (installable, works offline;
+only in the regular `npm run build`, since a plain `npm run build` served over `http(s)`
+needs a service worker to work offline, while the standalone build already needs no
+network at all). The standalone build inlines everything (JS, CSS) into one `index.html`
+via vite-plugin-singlefile so it runs straight from disk with no server — a normal
+`npm run build`'s `index.html` uses `<script type="module">`, which browsers refuse to
+load over `file://` at all (unrelated to hosting/subpath — it fails identically no matter
+where the repo lives), so opening it directly always fails; that's what `build:standalone`
+is for.
 `base: './'` in vite.config.ts so the built site works from any subpath (e.g. GitHub Pages).
