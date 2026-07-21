@@ -15,6 +15,9 @@ All data lives in your browser (IndexedDB). No server, no accounts. Use **Backup
 (JSON) to back up or move data between devices. The app keeps track of changes made since
 your last backup and shows a reminder until you back them up.
 
+**New here?** See [USER_GUIDE.md](USER_GUIDE.md) for a walkthrough of creating a character
+and logging your first few sessions.
+
 ## How it works
 
 Characters store only what you type in: **name, species, class**. Everything else —

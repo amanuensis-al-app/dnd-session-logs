@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Getting Started with AMAnuensis</title>
+<link rel="icon" type="image/png" href="ama-icon.png" />
+<style>
+  :root {
+    --bg: #16121f;
+    --raised: #201a2e;
+    --border: #3a3155;
+    --text: #e8e3f4;
+    --muted: #9c93b8;
+    --gold: #b08d57;
+    --gold-strong: #d4a968;
+    --shadow: rgba(8, 6, 14, 0.55);
+
+    --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --font-body: "Seravek", "Avenir Next", "Segoe UI", "Noto Sans", ui-sans-serif, system-ui, sans-serif;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #efe6d3;
+      --raised: #fbf8ef;
+      --border: #d9c9a0;
+      --text: #2a2140;
+      --muted: #6b5f7a;
+      --gold: #8a6a35;
+      --gold-strong: #a9782c;
+      --shadow: rgba(60, 45, 20, 0.18);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .desk {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2.4rem 1.25rem 5rem;
+  }
+
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.88rem;
+    margin-bottom: 1.6rem;
+    width: 100%;
+    max-width: 700px;
+  }
+
+  .back-link:hover {
+    color: var(--gold-strong);
+  }
+
+  .page {
+    width: 100%;
+    max-width: 700px;
+    background: var(--raised);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 24px 60px var(--shadow);
+    padding: 3.2rem clamp(1.6rem, 5vw, 4rem) 3.6rem;
+    animation: settle 0.5s ease-out both;
+  }
+
+  @keyframes settle {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .page { animation: none; }
+  }
+
+  /* ---- Masthead ---- */
+
+  .masthead {
+    text-align: center;
+    margin-bottom: 2.6rem;
+  }
+
+  .eyebrow {
+    display: block;
+    font-family: var(--font-body);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 0.7rem;
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(2rem, 5vw, 2.6rem);
+    line-height: 1.15;
+    margin: 0 0 0.6rem;
+    text-wrap: balance;
+    letter-spacing: 0.01em;
+  }
+
+  .subtitle {
+    font-size: 1.02rem;
+    color: var(--muted);
+    max-width: 46ch;
+    margin: 0 auto;
+    text-wrap: pretty;
+  }
+
+  .rule {
+    width: 120px;
+    height: 1px;
+    margin: 1.6rem auto 0;
+    background: linear-gradient(
+      to right,
+      transparent,
+      var(--gold-strong),
+      transparent
+    );
+    position: relative;
+  }
+
+  .rule::after {
+    content: "❧";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -55%);
+    background: var(--raised);
+    padding: 0 0.6rem;
+    color: var(--gold-strong);
+    font-size: 0.95rem;
+  }
+
+  /* ---- Intro note ---- */
+
+  .lede {
+    font-size: 1.02rem;
+    margin: 0 0 2.6rem;
+  }
+
+  .lede::first-letter {
+    font-family: var(--font-display);
+    font-size: 3.4rem;
+    line-height: 0.78;
+    float: left;
+    padding: 0.06em 0.09em 0 0;
+    color: var(--gold-strong);
+  }
+
+  /* ---- Steps ---- */
+
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 2.4rem;
+  }
+
+  .step {
+    display: grid;
+    grid-template-columns: 2.6rem 1fr;
+    gap: 0.4rem 1.1rem;
+  }
+
+  .step-num {
+    font-family: var(--font-display);
+    font-size: 1.7rem;
+    color: var(--gold);
+    line-height: 1;
+    padding-top: 0.1rem;
+  }
+
+  .step h2 {
+    grid-column: 2;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.28rem;
+    margin: 0.1rem 0 0.55rem;
+    text-wrap: balance;
+  }
+
+  .step-body {
+    grid-column: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+
+  .step-body p {
+    margin: 0;
+  }
+
+  .step-body ul {
+    margin: 0;
+    padding-left: 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .step-body li::marker {
+    color: var(--gold);
+  }
+
+  .skip-note {
+    font-size: 0.86rem;
+    font-style: italic;
+    color: var(--muted);
+    margin: -0.25rem 0 0 !important;
+  }
+
+  strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .step-body strong,
+  .lede strong {
+    background: linear-gradient(
+      to bottom,
+      transparent 62%,
+      color-mix(in srgb, var(--gold) 30%, transparent) 62%
+    );
+  }
+
+  /* ---- Marginalia / tip callouts ---- */
+
+  .margin-note {
+    border-left: 2px solid var(--gold);
+    padding: 0.15rem 0 0.15rem 0.95rem;
+    font-size: 0.94rem;
+    color: var(--muted);
+  }
+
+  .margin-note .tag {
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 0.68rem;
+    color: var(--gold-strong);
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+
+  .margin-note strong {
+    color: var(--muted);
+    background: none;
+  }
+
+  /* ---- Colophon ---- */
+
+  .colophon {
+    margin-top: 3.2rem;
+    padding-top: 1.8rem;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.92rem;
+  }
+
+  .colophon p {
+    max-width: 52ch;
+    margin: 0 auto;
+    text-wrap: pretty;
+  }
+
+  .colophon-mark {
+    display: block;
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 1rem;
+    filter: drop-shadow(0 3px 8px var(--shadow));
+  }
+
+  kbd {
+    font-family: var(--font-body);
+    font-size: 0.88em;
+    background: color-mix(in srgb, var(--gold) 14%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.05em 0.4em;
+  }
+
+  @media (max-width: 520px) {
+    .page { padding: 2.4rem 1.3rem 2.8rem; }
+    .step { grid-template-columns: 2.1rem 1fr; }
+    .step-num { font-size: 1.4rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="desk">
+  <a class="back-link" href="./">← Back to AMAnuensis</a>
+  <main class="page">
+    <header class="masthead">
+      <span class="eyebrow">AMAnuensis · A Player's Guide</span>
+      <h1>Getting Started</h1>
+      <p class="subtitle">
+        Bringing in (or creating) a character, logging games, trading, shopping,
+        and keeping your data safe — the everyday stuff, in the order you'll
+        actually use it.
+      </p>
+      <div class="rule"></div>
+    </header>
+
+    <p class="lede">
+      Everything in AMAnuensis lives <strong>only in your browser</strong> — there's
+      no account and no server. That makes backups important; see the last section.
+      The app has more tools than what's below (magic item prep, spell copying,
+      printable reports…), but this covers what you'll touch most sessions.
+    </p>
+
+    <div class="steps">
+      <section class="step">
+        <span class="step-num">1</span>
+        <h2>Already playing? Import your history</h2>
+        <div class="step-body">
+          <p>
+            Most players already have some history somewhere — you probably don't
+            need to start from zero. Two shortcuts on the Characters screen:
+          </p>
+          <ul>
+            <li>
+              <strong>Import AL Log</strong> — you've been logging games on
+              adventurersleaguelog.com. Pick your exported CSV (one file per
+              character).
+            </li>
+            <li>
+              <strong>Import CSV Log</strong> — your history lives somewhere else
+              entirely: a personal spreadsheet, any other CSV export the app has
+              never seen before.
+            </li>
+          </ul>
+          <p>
+            Both work the same way: pick your file, and AMAnuensis converts it into
+            a brand-new character with all its logs. Import AL Log knows the
+            site's format well enough to offer an instant offline conversion
+            (<strong>✨ Quick Import</strong>), but for anything trickier — or for
+            Import CSV Log, which has to work out formats it's never seen — the
+            more accurate path is <strong>🤖 Use an AI Chatbot</strong>: click it,
+            copy the prepared instructions (your file's contents are included),
+            paste them into any AI chatbot you already use (ChatGPT, Claude,
+            Gemini…), and paste its reply back in.
+          </p>
+          <div class="margin-note">
+            <span class="tag">Reassurance</span>
+            Nothing is saved right away — you get a preview first (derived level,
+            GP, downtime, and anything the conversion wasn't sure about).
+            Importing always creates a <strong>brand-new</strong> character; it
+            never touches or overwrites anything already in the app.
+          </div>
+        </div>
+      </section>
+
+      <section class="step">
+        <span class="step-num">2</span>
+        <h2>Starting fresh: create your character</h2>
+        <div class="step-body">
+          <p class="skip-note">Already imported a character in Step 1? Skip to Step 4.</p>
+          <p>
+            On the Characters screen, click <strong>+ New Character</strong> and
+            enter a name, species, and class — species/class are just labels you
+            type, nothing mechanical depends on them.
+          </p>
+          <p>
+            A brand-new character starts at <strong>Level 1</strong> with
+            <strong>0 GP</strong> and an empty inventory — everything else comes
+            from logs you add. So the very next thing you do is add your first log.
+          </p>
+        </div>
+      </section>
+
+      <section class="step">
+        <span class="step-num">3</span>
+        <h2>Starting fresh: your first log (Starting Log)</h2>
+        <div class="step-body">
+          <p class="skip-note">Already imported a character in Step 1? Skip to Step 4.</p>
+          <p>
+            Open the character, click <strong>+ Add Log</strong>, then pick the
+            <strong>Starting Log</strong> tab. This is where you record how the
+            character began:
+          </p>
+          <ul>
+            <li>
+              <strong>Starting level</strong> — most tables start at 1, but pick
+              higher if yours allows starting further along (some AL rules grant
+              extra downtime, or even a free magic item, at higher starting levels
+              — there are fields for both).
+            </li>
+            <li>
+              <strong>Background</strong> and <strong>Class</strong> — pick your
+              2024 PHB packages and AMAnuensis fills in the starting gold and
+              equipment for you. Everything it fills in stays editable, so swap an
+              "(any)" placeholder for the specific tool or instrument you chose, or
+              pick <strong>Custom Background</strong> and enter your own.
+            </li>
+          </ul>
+          <p>
+            Save it, and the character sheet immediately shows the right level, GP,
+            and starting inventory.
+          </p>
+        </div>
+      </section>
+
+      <section class="step">
+        <span class="step-num">4</span>
+        <h2>Logging a session</h2>
+        <div class="step-body">
+          <p>
+            This is the log you'll use most. After a game, click
+            <strong>+ Add Log → Session</strong> and fill in GP gained/lost,
+            downtime gained, level gained (usually +1), the DM and location, and
+            any items gained or lost.
+          </p>
+          <div class="margin-note">
+            <span class="tag">Tip</span>
+            If your DM posts a written recap, click
+            <strong>+ Add Log from Text</strong> instead of filling the form by
+            hand — paste the recap in and it prefills a Session log for you to
+            review before saving.
+          </div>
+        </div>
+      </section>
+
+      <section class="step">
+        <span class="step-num">5</span>
+        <h2>Trading a magic item</h2>
+        <div class="step-body">
+          <p>
+            Trading with another player costs <strong>5 downtime days</strong> and
+            only works between items of the <strong>same rarity</strong>. Click
+            <strong>+ Add Log → Trade</strong>, pick the magic item you're giving
+            away from your inventory, type in what you received, and who you
+            traded with.
+          </p>
+        </div>
+      </section>
+
+      <section class="step">
+        <span class="step-num">6</span>
+        <h2>Buying (and selling) gear</h2>
+        <div class="step-body">
+          <p>
+            <strong>Purchase</strong> logs spend GP on equipment or consumables —
+            pick items from the catalog (prices fill in automatically) or type
+            your own; the total GP spent is calculated for you as you add rows.
+          </p>
+          <p>
+            Selling gear back works the same way in reverse, via the matching
+            <strong>Sell</strong> log type, prefilled from what you originally
+            paid.
+          </p>
+        </div>
+      </section>
+
+      <section class="step">
+        <span class="step-num">7</span>
+        <h2>Catching up on levels</h2>
+        <div class="step-body">
+          <p>
+            Behind on levels compared to your table? A <strong>Catch Up</strong>
+            log spends <strong>10 downtime days per level</strong> — set how many
+            levels to gain, and the downtime cost is calculated for you.
+          </p>
+        </div>
+      </section>
+
+      <section class="step">
+        <span class="step-num">8</span>
+        <h2>Made a mistake? Just fix the log</h2>
+        <div class="step-body">
+          <p>
+            Nothing here is permanent in a scary way. Every stat on the character
+            sheet — level, GP, downtime, inventory — is
+            <strong>recalculated from your logs every time</strong>, not stored
+            directly. Click <kbd>✎</kbd> on any log to edit it and everything
+            recomputes; click <kbd>✕</kbd> to delete a log entirely.
+          </p>
+          <p>
+            There's no way to corrupt your character by editing history — worst
+            case, you delete a log and re-add it correctly.
+          </p>
+        </div>
+      </section>
+
+      <section class="step">
+        <span class="step-num">9</span>
+        <h2>Back up your data</h2>
+        <div class="step-body">
+          <p>
+            Since everything lives in your browser only,
+            <strong>your backup file is your only copy</strong> — clearing browser
+            data or switching devices without one means starting over.
+          </p>
+          <ul>
+            <li>
+              <strong>Backup All</strong> downloads everything — every character,
+              every log — as a JSON file.
+            </li>
+            <li>
+              <strong>Restore All</strong> loads a backup back in — you'll choose
+              whether to <em>replace</em> everything or <em>merge</em> it with
+              what's already there.
+            </li>
+          </ul>
+          <div class="margin-note">
+            <span class="tag">Reminder</span>
+            AMAnuensis tracks changes since your last backup and shows a note in
+            the bottom-left corner until you download one, with a
+            <strong>Backup now</strong> shortcut right there.
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="colophon">
+      <img class="colophon-mark" src="ama-icon.png" alt="AMAnuensis" />
+      <p>
+        That's enough to bring in a character and keep playing. When you're ready
+        to dig further — magic item attunement and prep for game night, copying
+        spells into a Wizard's spellbook, or printing a report for your DM — those
+        tools are all there in the app when you need them.
+      </p>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>
