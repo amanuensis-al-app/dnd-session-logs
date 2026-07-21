@@ -13,6 +13,7 @@ type RestoreStep = { step: 'warn-unbacked' } | { step: 'choose-mode'; bundle: Ex
 
 const LAST_BACKUP_KEY = 'al-tracker:lastBackupAt';
 const LAST_CHANGE_KEY = 'al-tracker:lastChangeAt';
+const GUIDE_OPENED_KEY = 'al-tracker:guideOpened';
 
 /** ISO timestamps compare lexically, so string > is chronological. */
 function readHasUnbackedChanges(): boolean {
@@ -78,6 +79,11 @@ export default function App() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [view, setView] = useState<View>({ screen: 'list' });
   const [hasUnbackedChanges, setHasUnbackedChanges] = useState(readHasUnbackedChanges);
+  // Whether the player's guide has ever been opened in this browser — drives the
+  // glowing "unread" dot on the header's Guide link until they click it once.
+  const [guideOpened, setGuideOpened] = useState(
+    () => localStorage.getItem(GUIDE_OPENED_KEY) === '1',
+  );
   const [restore, setRestore] = useState<RestoreStep>(null);
   // Which character a Restore flow is scoped to (set right before the file picker
   // opens), or undefined for the whole-collection "Restore All". Read by
@@ -93,6 +99,11 @@ export default function App() {
   function markBackedUp() {
     localStorage.setItem(LAST_BACKUP_KEY, new Date().toISOString());
     setHasUnbackedChanges(false);
+  }
+
+  function markGuideOpened() {
+    localStorage.setItem(GUIDE_OPENED_KEY, '1');
+    setGuideOpened(true);
   }
 
   useEffect(() => {
@@ -303,6 +314,16 @@ export default function App() {
             title="View on GitHub"
           >
             v{__APP_VERSION__}
+          </a>
+          <a
+            className={`app-version guide-link${guideOpened ? '' : ' guide-link-unread'}`}
+            href={`${import.meta.env.BASE_URL}guide.html`}
+            target="_blank"
+            rel="noreferrer"
+            title="Getting-started guide"
+            onClick={markGuideOpened}
+          >
+            Guide
           </a>
         </div>
         <div className="app-header-actions">

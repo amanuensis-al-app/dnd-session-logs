@@ -107,6 +107,43 @@ h2 {
   text-decoration: underline;
 }
 
+.guide-link {
+  position: relative;
+}
+
+/* Glowing "unread" dot — cleared for good once the guide link is clicked (see
+   App.tsx's guideOpened/GUIDE_OPENED_KEY). */
+.guide-link-unread::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  right: -7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 5px 1px var(--danger);
+  animation: guide-dot-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes guide-dot-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 4px 1px var(--danger);
+    opacity: 0.85;
+  }
+  50% {
+    box-shadow: 0 0 9px 3px var(--danger);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-link-unread::after {
+    animation: none;
+  }
+}
+
 .app-header-actions {
   display: flex;
   gap: 0.4rem;
