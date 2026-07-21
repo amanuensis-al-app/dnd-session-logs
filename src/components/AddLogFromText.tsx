@@ -46,7 +46,12 @@ export function AddLogFromText({ characterId, onDraft, onClose }: Props) {
 
   if (step === 'chatbot') {
     return (
-      <Modal title="Fill It In with an AI Chatbot" wide onClose={onClose}>
+      <Modal
+        title="Fill It In with an AI Chatbot"
+        wide
+        decoration="decorations/ai-scribe.png"
+        onClose={onClose}
+      >
         <div className="text-import">
           <ol>
             <li>
@@ -92,7 +97,7 @@ export function AddLogFromText({ characterId, onDraft, onClose }: Props) {
   }
 
   return (
-    <Modal title="Add Log from Text" wide onClose={onClose}>
+    <Modal title="Add Log from Text" wide decoration="decorations/ai-scribe.png" onClose={onClose}>
       <div className="text-import">
         <p className="muted">
           Paste the session write-up (e.g. the message your DM posted on Discord) and the log

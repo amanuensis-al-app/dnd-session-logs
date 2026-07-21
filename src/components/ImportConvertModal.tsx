@@ -70,7 +70,7 @@ export function ImportConvertModal({
 
   if (step === 'chatbot') {
     return (
-      <Modal title={chatbotTitle} wide onClose={onClose}>
+      <Modal title={chatbotTitle} wide decoration="decorations/ai-scribe.png" onClose={onClose}>
         <div className="text-import">
           {!quickImport && (
             <p>
@@ -124,7 +124,7 @@ export function ImportConvertModal({
   }
 
   return (
-    <Modal title={title} onClose={onClose}>
+    <Modal title={title} decoration="decorations/ai-scribe.png" onClose={onClose}>
       <p>
         <strong>{fileName}</strong>
       </p>

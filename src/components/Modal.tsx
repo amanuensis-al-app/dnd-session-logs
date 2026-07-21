@@ -10,12 +10,17 @@ export function Modal({
   title,
   onClose,
   wide = false,
+  decoration,
   children,
 }: {
   title: string;
   onClose: () => void;
   /** Wider dialog for content like pasted text. */
   wide?: boolean;
+  /** Illustration shown above the title — the AI-chatbot screens' Ama-and-scribe
+   * header image (see index.css .modal-decoration). Public-asset path, joined with
+   * BASE_URL the same way ama-icon.png is elsewhere. */
+  decoration?: string;
   children: ReactNode;
 }) {
   useEffect(() => {
@@ -40,6 +45,13 @@ export function Modal({
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
       >
+        {decoration && (
+          <img
+            className="modal-decoration"
+            src={`${import.meta.env.BASE_URL}${decoration}`}
+            alt=""
+          />
+        )}
         <h2>{title}</h2>
         {children}
       </div>

@@ -1026,9 +1026,28 @@ span.item-row-name > * {
 }
 
 .modal {
+  position: relative;
   width: 100%;
   max-width: 460px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Ama-and-scribe illustration on the AI-chatbot screens (Modal's `decoration`
+   prop) — a "crown" perched above the modal: absolutely positioned against
+   .modal's `position: relative`, popping up out of the card rather than taking
+   up space inside it (the card has no overflow:hidden, so it's free to
+   protrude). Rounded corners + drop-shadow read it as a floating badge instead
+   of a stray white rectangle (the source art has a white background). */
+.modal-decoration {
+  position: absolute;
+  top: -105px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: clamp(140px, 42vw, 210px);
+  height: auto;
+  border-radius: 10px;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55));
+  pointer-events: none;
 }
 
 .modal p {
