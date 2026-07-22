@@ -1301,6 +1301,15 @@ span.item-row-name > * {
   gap: 0.4rem;
 }
 
+/* Shown only when the report is opened from a file:// origin (the standalone
+   offline build) — see CharacterReport.tsx's isLocalFile. */
+.report-toolbar-note {
+  font-size: 0.78rem;
+  color: #f0ead9;
+  opacity: 0.75;
+  max-width: 22em;
+}
+
 .report-sheet {
   max-width: 820px;
   margin: 1.2rem auto 3rem;
@@ -1416,6 +1425,12 @@ span.item-row-name > * {
     box-shadow: none;
     border-radius: 0;
     background: none;
+  }
+  /* Compensates for the @page margin being zeroed (see CharacterReport.tsx's
+     isLocalFile / the inline <style> it injects) — without this the printed page
+     would have no whitespace at all once the browser's own margin is gone. */
+  .report-sheet-local-file {
+    padding: 14mm;
   }
   .report-watermark {
     display: block;

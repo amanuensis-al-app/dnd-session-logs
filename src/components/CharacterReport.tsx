@@ -85,13 +85,31 @@ export function CharacterReport({ character, derived, logs, onClose }: Props) {
         : 'Not attuned'
       : 'Attunement not required';
 
+  // Browsers print their own URL into the page header/footer, using the @page
+  // margin as drawing space. From a hosted origin that's just the site's public
+  // URL — fine. From the standalone offline build (opened via file://), that same
+  // header would print the local file path, which embeds the OS username. Zeroing
+  // the @page margin for this one print job is the standard way to make Chromium
+  // browsers drop the header/footer outright (no margin space, nothing to draw
+  // into) — not guaranteed on every browser's print engine, but it's the best
+  // available mitigation short of asking the user to also uncheck "Headers and
+  // footers" by hand, which the toolbar note below does too.
+  const isLocalFile = window.location.protocol === 'file:';
+
   // Portaled to <body> so that in print the app root can be display:none'd and the
   // report printed as a normal static-flow document — absolutely-positioned overlays
   // don't paginate (they print as one giant page), static flow does.
   return createPortal(
     <div className="print-report">
+      {isLocalFile && <style>{'@page { margin: 0 !important; }'}</style>}
       <div className="report-toolbar">
         <strong>Character report — {character.name}</strong>
+        {isLocalFile && (
+          <span className="report-toolbar-note">
+            Double-check "Headers and footers" is unchecked in the print dialog — it can
+            otherwise show this file's local path.
+          </span>
+        )}
         <span className="report-toolbar-actions">
           <button className="btn btn-primary" onClick={() => window.print()}>
             🖨️ Print / Save as PDF
@@ -110,7 +128,7 @@ export function CharacterReport({ character, derived, logs, onClose }: Props) {
         aria-hidden
       />
 
-      <div className="report-sheet">
+      <div className={`report-sheet${isLocalFile ? ' report-sheet-local-file' : ''}`}>
         <header className="report-header">
           {character.icon && <img className="report-icon" src={character.icon} alt="" />}
           <div>
