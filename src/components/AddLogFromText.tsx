@@ -55,10 +55,19 @@ export function AddLogFromText({ characterId, onDraft, onClose }: Props) {
         <div className="text-import">
           <ol>
             <li>
-              Copy the prepared instructions (your pasted text is included):{' '}
-              <button type="button" className="btn btn-small" onClick={copyInstructions}>
-                {copied ? '✓ Copied' : '📋 Copy Instructions'}
-              </button>
+              Copy the prepared instructions (your pasted text is included):
+              <div className="copy-instructions-row">
+                <span className="copy-arrow-hint" aria-hidden="true">
+                  →
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-copy-prominent"
+                  onClick={copyInstructions}
+                >
+                  {copied ? '✓ Copied' : '📋 Copy Instructions'}
+                </button>
+              </div>
             </li>
             <li>
               Paste them into any AI chatbot you already use — ChatGPT, Claude, Gemini… — and
@@ -81,7 +90,7 @@ export function AddLogFromText({ characterId, onDraft, onClose }: Props) {
             </button>
             <button
               type="button"
-              className="btn btn-primary"
+              className="btn"
               disabled={!reply.trim()}
               onClick={() => applyResult(() => parseChatbotReply(reply, characterId))}
             >

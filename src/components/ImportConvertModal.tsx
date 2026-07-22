@@ -79,10 +79,19 @@ export function ImportConvertModal({
           )}
           <ol>
             <li>
-              Copy the prepared instructions (the whole CSV is included):{' '}
-              <button type="button" className="btn btn-small" onClick={copyInstructions}>
-                {copied ? '✓ Copied' : '📋 Copy Instructions'}
-              </button>
+              Copy the prepared instructions (the whole CSV is included):
+              <div className="copy-instructions-row">
+                <span className="copy-arrow-hint" aria-hidden="true">
+                  →
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-copy-prominent"
+                  onClick={copyInstructions}
+                >
+                  {copied ? '✓ Copied' : '📋 Copy Instructions'}
+                </button>
+              </div>
             </li>
             <li>
               Paste them into any AI chatbot you already use — ChatGPT, Claude, Gemini… — and
@@ -107,7 +116,7 @@ export function ImportConvertModal({
             </button>
             <button
               type="button"
-              className="btn btn-primary"
+              className="btn"
               disabled={!reply.trim()}
               onClick={() => produce(() => parseReply(reply))}
             >

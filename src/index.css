@@ -1178,6 +1178,45 @@ span.item-row-name > * {
   font-size: 0.8rem;
 }
 
+/* Copy Instructions button: own line below the step text, with a permanent
+   animated arrow pointing at it — always shown, not just for first-time users. */
+.copy-instructions-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.btn-copy-prominent {
+  font-weight: 600;
+}
+
+.copy-arrow-hint {
+  display: inline-block;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--danger);
+  animation: copy-arrow-point 1s ease-in-out infinite;
+}
+
+@keyframes copy-arrow-point {
+  0%,
+  100% {
+    transform: translateX(0);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translateX(5px);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copy-arrow-hint {
+    animation: none;
+  }
+}
+
 .import-draft-warnings {
   margin-bottom: 1rem;
 }
