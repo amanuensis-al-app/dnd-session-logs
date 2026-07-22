@@ -155,15 +155,15 @@ function ComboInput({
 }
 
 const TYPE_HELP: Record<LogType, string> = {
-  session: 'A played session: rewards (and occasional losses) of gold, downtime, items and buffs.',
+  session: 'A played D&D session: rewards magic items, equipments, gold, level, and downtime. Also record items consumed.',
   catchup: 'Downtime activity: spend 10 downtime days per level gained.',
   transaction: 'Trade a magic item for another of the same rarity. Costs 5 downtime days.',
   copy_spell:
-    'Wizard: copy spells into the spellbook — 50 gp per spell level, 1 downtime day (levels 1–4) or 2 (5+). Copying from a scroll consumes the scroll.',
+    'Wizard only: copy spells into the spellbook — 50 gp per spell level, 1 downtime day (levels 1–4) or 2 (5+). Copying from a scroll consumes the scroll.',
   purchase: 'Spend gold on equipment or consumables.',
   sell: 'Sell equipment for gold. The price prefills at half of what you paid (or half list price).',
-  creation: 'Character creation: starting gold and equipment. Pick a background to prefill.',
-  free: 'Record anything: DM rewards, corrections…',
+  creation: 'Character creation: starting gold and equipment. Pick a class and a background to prefill.',
+  free: 'Record anything not yet covered by other type of logs.',
 };
 
 interface GainDraft {
@@ -1242,8 +1242,7 @@ export function LogForm({
             </label>
           </div>
           <p className="muted">
-            Most tables start at level 1 — pick a higher level if yours allows starting
-            further along (e.g. a Tier 2 one-shot).
+            Most characters start at level 1 — you may also pick a higher level (e.g. starting at level 5) based on AL or campaign specific rules. 
           </p>
           <div className="form-grid">
             <label>
@@ -1351,8 +1350,8 @@ export function LogForm({
             Picking a background and class fills in the gold (sum of both) and item rows —
             adjust them freely, e.g. replace an “(any)” placeholder with the specific tool or
             instrument you chose. If your background isn’t on the list, pick Custom Background
-            and adjust the gold and equipment accordingly. Starting above level 1 sometimes
-            comes with downtime days too, per your table's rules — add them above if so.
+            and adjust the gold and equipment accordingly. Starting above level 1 may come with
+            downtime days too — add them above if so.
           </p>
         </>
       )}
