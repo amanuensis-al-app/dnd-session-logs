@@ -1264,6 +1264,16 @@ span.item-row-name > * {
   .stat-value {
     font-size: 1.15rem;
   }
+  /* Characters screen's heading row (Import AL Log / Import CSV Log / Import
+     Backup / + New Character): without wrapping, these overflow past the
+     viewport edge on narrow screens and the last button(s) become unpressable. */
+  .page-heading {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .page-heading-actions {
+    flex-wrap: wrap;
+  }
 }
 
 /* ---- Character report (Export PDF) ---- */
