@@ -618,6 +618,7 @@ Use exactly this shape:
 Rules:
 - Potions, oils, elixirs and scrolls are "consumable". Magical weapons, armor and wondrous items are "magic_item". Ordinary gear is "equipment".
 - Spell scrolls: name them "Spell Scroll of <Spell Name>" (e.g. "Spell Scroll of Fireball"), not "Spell Scroll (Spell Name)".
+- Keep a magic item's name exactly as specific as the write-up states it, even if it's a named variant of a more generic magic item type — e.g. keep "Vicious Greatsword" as "Vicious Greatsword", don't generalize it to "Vicious Weapon". The app looks up rarity/attunement from the specific name on its own; a generalized name loses information the player needs.
 - Some write-ups state a magic item's attunement requirement ("requires attunement", "no attunement needed") — record exactly that in "requiresAttunement". If the write-up doesn't mention it, use null; don't guess from the item's name.
 - List every item the party received; the player will remove the ones they didn't take.
 - Text between || bars is a Discord spoiler — read it normally.
