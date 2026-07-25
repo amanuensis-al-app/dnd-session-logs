@@ -308,7 +308,7 @@ export default function App() {
           </button>
           <a
             className="app-version"
-            href="https://github.com/EdrickRudy93/dnd-session-logs"
+            href="https://github.com/amanuensis-al-app/dnd-session-logs"
             target="_blank"
             rel="noreferrer"
             title="View on GitHub"

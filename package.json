@@ -6,9 +6,9 @@
   "author": "EdrickRudy93",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/EdrickRudy93/dnd-session-logs.git"
+    "url": "git+https://github.com/amanuensis-al-app/dnd-session-logs.git"
   },
-  "homepage": "https://edrickrudy93.github.io/dnd-session-logs/",
+  "homepage": "https://amanuensis-al-app.github.io/dnd-session-logs/",
   "type": "module",
   "scripts": {
     "dev": "vite",
