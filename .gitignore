@@ -15,6 +15,11 @@ dist-ssr
 
 .claude/settings.local.json
 
+# Session-diary doc for AI-assisted sessions — carries dev-environment/git-identity
+# detail not meant for the public repo (untracked + purged from history 2026-07-25).
+# Kept locally on each dev machine; sync it yourself, it doesn't travel with git.
+CLAUDE.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
