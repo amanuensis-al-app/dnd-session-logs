@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as db from './db';
 import { deriveCharacter } from './derive';
 import type { Character, ExportBundle, LogEntry } from './types';
+import { EXAMPLE_CHARACTER, EXAMPLE_LOGS } from './exampleCharacter';
 import { CharacterList } from './components/CharacterList';
 import { CharacterSheet } from './components/CharacterSheet';
 import { Modal } from './components/Modal';
@@ -14,6 +15,7 @@ type RestoreStep = { step: 'warn-unbacked' } | { step: 'choose-mode'; bundle: Ex
 const LAST_BACKUP_KEY = 'al-tracker:lastBackupAt';
 const LAST_CHANGE_KEY = 'al-tracker:lastChangeAt';
 const GUIDE_OPENED_KEY = 'al-tracker:guideOpened';
+const EXAMPLE_SEEDED_KEY = 'al-tracker:exampleSeeded';
 
 /** ISO timestamps compare lexically, so string > is chronological. */
 function readHasUnbackedChanges(): boolean {
@@ -73,6 +75,29 @@ async function migrateLegacyAttunement(
   return { characters: nextCharacters, logs: nextLogs, migrated: true };
 }
 
+/**
+ * First-ever visit only (added 2026-07-25): seeds one bundled example character
+ * (see exampleCharacter.ts) so a brand-new browser sees a filled-out example
+ * instead of a blank list. Runs at most once per browser, tracked by
+ * EXAMPLE_SEEDED_KEY — set right away regardless of outcome, so deleting the
+ * example character afterward (or restoring a backup that happens to be empty)
+ * never brings it back. Only actually inserts anything the FIRST time this runs
+ * with zero existing characters — an existing user's data is never touched.
+ */
+async function seedExampleCharacter(
+  characters: Character[],
+  logs: LogEntry[],
+): Promise<{ characters: Character[]; logs: LogEntry[] }> {
+  if (localStorage.getItem(EXAMPLE_SEEDED_KEY)) return { characters, logs };
+  localStorage.setItem(EXAMPLE_SEEDED_KEY, '1');
+  if (characters.length > 0) return { characters, logs };
+
+  const character: Character = { ...EXAMPLE_CHARACTER, createdAt: Date.now() };
+  await db.putCharacter(character);
+  for (const log of EXAMPLE_LOGS) await db.putLog(log);
+  return { characters: [character], logs: EXAMPLE_LOGS };
+}
+
 export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [characters, setCharacters] = useState<Character[]>([]);
@@ -108,7 +133,10 @@ export default function App() {
 
   useEffect(() => {
     Promise.all([db.getAllCharacters(), db.getAllLogs()]).then(async ([chars, allLogs]) => {
-      const migrated = await migrateLegacyAttunement(chars, allLogs);
+      // Seeded data doesn't count as an "unbacked change" — it's factory-installed,
+      // not something the user did, so it shouldn't trigger the backup reminder.
+      const seeded = await seedExampleCharacter(chars, allLogs);
+      const migrated = await migrateLegacyAttunement(seeded.characters, seeded.logs);
       if (migrated.migrated) markChanged();
       setCharacters(migrated.characters.sort((a, b) => a.createdAt - b.createdAt));
       setLogs(migrated.logs);
