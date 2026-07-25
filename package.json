@@ -2,6 +2,13 @@
   "name": "amanuensis",
   "private": true,
   "version": "0.1.11",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "author": "EdrickRudy93",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EdrickRudy93/dnd-session-logs.git"
+  },
+  "homepage": "https://edrickrudy93.github.io/dnd-session-logs/",
   "type": "module",
   "scripts": {
     "dev": "vite",

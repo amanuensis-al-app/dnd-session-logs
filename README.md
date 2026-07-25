@@ -86,4 +86,19 @@ via vite-plugin-singlefile so it runs straight from disk with no server — a no
 load over `file://` at all (unrelated to hosting/subpath — it fails identically no matter
 where the repo lives), so opening it directly always fails; that's what `build:standalone`
 is for.
+
+## License & Attribution
+
+© 2026 EdrickRudy93. Licensed under the [PolyForm Strict License 1.0.0](LICENSE.md) —
+free to use, not to redistribute or modify.
+
+AMAnuensis is unofficial Fan Content permitted under the [Fan Content
+Policy](https://company.wizards.com/en/legal/fancontentpolicy). Not approved/endorsed by
+Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of
+the Coast LLC. This work includes material from the System Reference Document 5.2.1 ("SRD
+5.2.1") by Wizards of the Coast LLC, available at <https://www.dndbeyond.com/srd>, used
+under the [Creative Commons Attribution 4.0 International
+License](https://creativecommons.org/licenses/by/4.0/legalcode). The built-in magic items
+list is generated from data published by [5e.tools](https://5e.tools), used under its MIT
+license. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for full license texts.
 `base: './'` in vite.config.ts so the built site works from any subpath (e.g. GitHub Pages).
