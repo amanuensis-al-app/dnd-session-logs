@@ -820,6 +820,35 @@ textarea:focus {
   opacity: 1;
 }
 
+/* ---- Search (shared: Logs and Inventory search boxes) ---- */
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.search-bar input {
+  flex: 1;
+  max-width: 26rem;
+}
+
+.search-summary {
+  margin: -0.3rem 0 0.3rem;
+  font-size: 0.85rem;
+}
+
+.search-hint {
+  font-size: 0.85rem;
+}
+
+.search-hit {
+  background: var(--accent-strong);
+  color: var(--bg);
+  border-radius: 3px;
+  padding: 0 0.1em;
+}
+
 /* ---- Logs ---- */
 
 .log-history {

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { AttunementState, Character, DerivedStats, InventoryItem, Rarity } from '../types';
 import { EQUIPPABLE_CATEGORIES, RARITIES } from '../types';
 import {
@@ -9,6 +10,8 @@ import {
   tierForLevel,
   type PrepPool,
 } from '../tiers';
+import { highlight, MIN_QUERY_LENGTH } from '../searchHighlight';
+import { itemSearchText } from '../itemSearch';
 
 interface Props {
   character: Character;
@@ -60,6 +63,17 @@ const QUANTITY_POOLS: PrepPool[] = ['consumable', 'equipment'];
 export function Prep({ character, derived, onToggleMark, onSetAttunement, onSetEquipQuantity }: Props) {
   const tier = tierForLevel(derived.level);
 
+  // Full-text search, same fields/threshold as Inventory (see itemSearch.ts).
+  // Display only: (1) non-matching equipped rows are hidden (matches are shown,
+  // highlighted), and (2) each empty slot's pick list is narrowed to matches. The
+  // pool header's used/limit count and the over-limit warning are computed off the
+  // TRUE equipped set below, unaffected by search — a hidden item still holds its
+  // slot for real, so those numbers must never lie.
+  const [search, setSearch] = useState('');
+  const query = search.trim().toLowerCase();
+  const activeQuery = query.length >= MIN_QUERY_LENGTH ? query : '';
+  const matches = (item: InventoryItem) => !activeQuery || itemSearchText(item).includes(activeQuery);
+
   // Equipment/Story Awards can't carry an equip mark at all (see EQUIPPABLE_CATEGORIES);
   // depleted items (remaining = 0) aren't something you can prep either.
   const pools = new Map<PrepPool, { equipped: InventoryItem[]; available: InventoryItem[] }>();
@@ -101,23 +115,72 @@ export function Prep({ character, derived, onToggleMark, onSetAttunement, onSetE
     0,
   );
 
+  // For the search summary line only — doesn't affect slot counts/limits.
+  let matchedEquippedCount = 0;
+  let matchedAvailableCount = 0;
+  if (activeQuery) {
+    for (const { equipped, available } of pools.values()) {
+      matchedEquippedCount += equipped.filter(matches).length;
+      matchedAvailableCount += available.filter(matches).length;
+    }
+  }
+
   return (
     <div className="inventory">
+      <div className="search-bar">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search prepped gear — name, description, category…"
+          aria-label="Search prep"
+        />
+        {search && (
+          <button type="button" className="btn btn-ghost btn-small" onClick={() => setSearch('')}>
+            ✕ Clear
+          </button>
+        )}
+        {query && !activeQuery && (
+          <span className="muted search-hint">Keep typing… ({MIN_QUERY_LENGTH}+ characters)</span>
+        )}
+      </div>
+      {activeQuery && (
+        <p className="muted search-summary">
+          {matchedEquippedCount} equipped, {matchedAvailableCount} owned-but-unequipped match
+        </p>
+      )}
       <p className="muted prep-tier">
         Tier {tier} · Level {derived.level} · Attunement {attunedCount}/{ATTUNEMENT_CAP}
       </p>
       {PREP_POOL_ORDER.map((pool) => {
         const limit = prepLimit(tier, pool);
-        const { equipped, available } = pools.get(pool)!;
+        const { equipped, available: allAvailable } = pools.get(pool)!;
+        const available = activeQuery ? allAvailable.filter(matches) : allAvailable;
         if (limit === 0 && equipped.length === 0) return null;
         // Equipment is uncapped: it can never go over, and there is always one
         // empty slot to add the next piece of gear.
         const unlimited = !Number.isFinite(limit);
+        // Used/limit/over-limit math always reflects the TRUE equipped set, never
+        // the search — a hidden non-matching item still occupies its slot, and the
+        // header count and warning must stay honest even while filtering the list.
         const used = slotsUsed(pool, equipped);
         const emptySlots = unlimited ? 1 : Math.max(0, limit - used);
         const overBy = unlimited ? 0 : Math.max(0, used - limit);
         const isMagicItemPool = MAGIC_ITEM_POOLS.includes(pool);
         const isQuantityPool = QUANTITY_POOLS.includes(pool);
+        // Display only: non-matching equipped rows are hidden while searching (the
+        // header/warning above still count them). A pool with nothing relevant —
+        // no matching equipped row, no matching item to fill an empty slot, and no
+        // over-limit warning to show — disappears entirely instead of showing an
+        // empty shell.
+        const equippedToShow = activeQuery ? equipped.filter(matches) : equipped;
+        // While searching, only show as many empty slots as there are matching
+        // items to fill them with — an empty slot whose dropdown would offer
+        // nothing relevant is just noise.
+        const emptySlotsToShow = activeQuery ? Math.min(emptySlots, available.length) : emptySlots;
+        if (activeQuery && equippedToShow.length === 0 && available.length === 0 && overBy === 0) {
+          return null;
+        }
         return (
           <section key={pool} className="card inventory-section">
             <h2>
@@ -134,7 +197,7 @@ export function Prep({ character, derived, onToggleMark, onSetAttunement, onSetE
               </div>
             )}
             <ul className="inventory-items prep-slots">
-              {equipped.map((item) => {
+              {equippedToShow.map((item) => {
                 const attuned = character.attunement?.[item.id] === 'attuned';
                 const requiresAttunement = item.requiresAttunement ?? true;
                 const prepared = preparedOf(item);
@@ -142,7 +205,7 @@ export function Prep({ character, derived, onToggleMark, onSetAttunement, onSetE
                   <li key={item.id} className="inventory-item">
                     <div className="inventory-item-main">
                       <span className="inventory-item-name">
-                        {item.name}
+                        {highlight(item.name, activeQuery)}
                         {isQuantityPool && item.remaining > 1 ? (
                           <>
                             {' '}
@@ -206,15 +269,19 @@ export function Prep({ character, derived, onToggleMark, onSetAttunement, onSetE
                       </button>
                     </div>
                     {item.description && (
-                      <div className="inventory-item-desc muted">{item.description}</div>
+                      <div className="inventory-item-desc muted">
+                        {highlight(item.description, activeQuery)}
+                      </div>
                     )}
                     {item.minorProperty && (
-                      <div className="inventory-item-desc muted">Minor property: {item.minorProperty}</div>
+                      <div className="inventory-item-desc muted">
+                        Minor property: {highlight(item.minorProperty, activeQuery)}
+                      </div>
                     )}
                   </li>
                 );
               })}
-              {Array.from({ length: emptySlots }).map((_, i) => (
+              {Array.from({ length: emptySlotsToShow }).map((_, i) => (
                 <li key={`empty-${i}`} className="inventory-item prep-slot-empty">
                   <select
                     value=""

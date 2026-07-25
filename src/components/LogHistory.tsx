@@ -3,6 +3,7 @@ import type { DerivedStats, LogEntry, LogType } from '../types';
 import { CATEGORY_LABELS_SINGULAR, LOG_TYPE_LABELS, LOSS_REASON_LABELS } from '../types';
 import { formatGp, groupedLosses } from '../derive';
 import { creationPickLabel } from '../catalog';
+import { highlight, MIN_QUERY_LENGTH } from '../searchHighlight';
 
 interface Props {
   /** Already filtered to one character and sorted in replay order. */
@@ -30,6 +31,29 @@ const TYPE_BADGE: Record<LogType, string> = {
  * rendering hundreds of cards at once on slow machines. */
 const PAGE_SIZE = 30;
 
+/** Everything a log can be found by: title, notes, DM/location/trade partner,
+ * creation picks, and every gained/lost item's name — so "search anything"
+ * actually means anything. */
+function searchTextFor(log: LogEntry, itemNameById: Map<string, string>): string {
+  const parts: string[] = [
+    log.title,
+    log.notes ?? '',
+    LOG_TYPE_LABELS[log.type],
+    log.dm ?? '',
+    log.location ?? '',
+    log.tradePartner ?? '',
+  ];
+  if (log.creationBackground) parts.push(creationPickLabel(log.creationBackground, 'background'));
+  if (log.creationClass) parts.push(creationPickLabel(log.creationClass, 'class'));
+  for (const item of log.itemsGained) {
+    parts.push(item.name, item.description ?? '', item.minorProperty ?? '');
+  }
+  for (const loss of log.itemsLost) {
+    parts.push(itemNameById.get(loss.itemId) ?? '', LOSS_REASON_LABELS[loss.reason]);
+  }
+  return parts.join('\n').toLowerCase();
+}
+
 export function LogHistory({
   logs,
   derived,
@@ -41,16 +65,43 @@ export function LogHistory({
   // Pagination: 30 cards per page — all logs are in memory anyway, this is about
   // not rendering hundreds of cards at once on slow machines.
   const [page, setPage] = useState(0);
-  const pageCount = Math.max(1, Math.ceil(logs.length / PAGE_SIZE));
+  // Full-text search across title, notes, DM/location/trade partner, creation
+  // picks, and every gained/lost item's name — see searchTextFor.
+  const [search, setSearch] = useState('');
+  const query = search.trim().toLowerCase();
+  const activeQuery = query.length >= MIN_QUERY_LENGTH ? query : '';
+
+  const itemNameById = new Map(derived.allItems.map((i) => [i.id, i.name]));
+
+  // Newest first for reading; derivation always uses replay order internally.
+  // The log currently being edited is always kept in, even if it stops matching
+  // the search as the user types — else the open edit form would vanish out from
+  // under them.
+  const filtered = [...logs]
+    .reverse()
+    .filter(
+      (log) =>
+        log.id === editingLogId ||
+        !activeQuery ||
+        searchTextFor(log, itemNameById).includes(activeQuery),
+    );
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
+
+  // Reset to the first page whenever the active search term changes — the old
+  // page number may not exist in the (usually much shorter) filtered results.
+  useEffect(() => {
+    setPage(0);
+  }, [activeQuery]);
 
   // The edit form replaces a log's card in place — jump to the page holding it,
   // or the form would be invisible on another page.
   useEffect(() => {
     if (!editingLogId) return;
-    const idx = logs.findIndex((l) => l.id === editingLogId);
-    if (idx !== -1) setPage(Math.floor((logs.length - 1 - idx) / PAGE_SIZE));
-  }, [editingLogId, logs]);
+    const idx = filtered.findIndex((l) => l.id === editingLogId);
+    if (idx !== -1) setPage(Math.floor(idx / PAGE_SIZE));
+  }, [editingLogId, filtered]);
 
   if (logs.length === 0) {
     return (
@@ -64,8 +115,6 @@ export function LogHistory({
     );
   }
 
-  const itemNameById = new Map(derived.allItems.map((i) => [i.id, i.name]));
-
   // Level after each log, computed in REPLAY order (level starts at 1) even though
   // the list shows newest first — displayed next to the level delta on logs that
   // change level.
@@ -76,9 +125,27 @@ export function LogHistory({
     levelAfterByLogId.set(log.id, runningLevel);
   }
 
-  // Newest first for reading; derivation always uses replay order internally.
-  const display = [...logs].reverse();
-  const pageLogs = display.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+  const pageLogs = filtered.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+
+  const searchBar = (
+    <div className="search-bar">
+      <input
+        type="search"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search logs — title, notes, items, DM, location…"
+        aria-label="Search logs"
+      />
+      {search && (
+        <button type="button" className="btn btn-ghost btn-small" onClick={() => setSearch('')}>
+          ✕ Clear
+        </button>
+      )}
+      {query && !activeQuery && (
+        <span className="muted search-hint">Keep typing… ({MIN_QUERY_LENGTH}+ characters)</span>
+      )}
+    </div>
+  );
 
   const pager = pageCount > 1 && (
     <div className="log-pager">
@@ -90,7 +157,8 @@ export function LogHistory({
         ← Newer
       </button>
       <span className="muted">
-        Page {currentPage + 1} of {pageCount} · {logs.length} logs
+        Page {currentPage + 1} of {pageCount} ·{' '}
+        {activeQuery ? `${filtered.length} of ${logs.length} logs match` : `${logs.length} logs`}
       </span>
       <button
         className="btn btn-ghost btn-small"
@@ -104,14 +172,30 @@ export function LogHistory({
 
   return (
     <div className="log-history">
+      {searchBar}
+      {activeQuery && pageCount <= 1 && (
+        <p className="muted search-summary">
+          {filtered.length} of {logs.length} logs match
+        </p>
+      )}
       {pager}
+      {pageLogs.length === 0 && (
+        <div className="empty-state">
+          <p>No logs match "{search.trim()}".</p>
+          <button type="button" className="btn btn-ghost btn-small" onClick={() => setSearch('')}>
+            Clear search
+          </button>
+        </div>
+      )}
       {pageLogs.map((log) =>
         log.id === editingLogId && editForm ? (
           /* Keep the entry's card header while the edit form replaces its body. */
           <article key={log.id} className="card log-entry log-entry-editing">
             <header className="log-entry-header">
               <span className={`badge ${TYPE_BADGE[log.type]}`}>{LOG_TYPE_LABELS[log.type]}</span>
-              <span className="log-entry-title">{log.title || '(untitled)'}</span>
+              <span className="log-entry-title">
+                {log.title ? highlight(log.title, activeQuery) : '(untitled)'}
+              </span>
               {/* CSS hides this while the form is expanded (its Date field shows it). */}
               <span className="muted log-entry-date">
                 {log.date}
@@ -124,7 +208,9 @@ export function LogHistory({
         <article key={log.id} className="card log-entry">
           <header className="log-entry-header">
             <span className={`badge ${TYPE_BADGE[log.type]}`}>{LOG_TYPE_LABELS[log.type]}</span>
-            <span className="log-entry-title">{log.title || '(untitled)'}</span>
+            <span className="log-entry-title">
+              {log.title ? highlight(log.title, activeQuery) : '(untitled)'}
+            </span>
             <span className="muted log-entry-date">
               {log.date}
               {log.time ? ` ${log.time}` : ''}
@@ -151,7 +237,7 @@ export function LogHistory({
           <div className="log-entry-body">
             {log.tradePartner && (
               <div className="log-line">
-                Traded with <strong>{log.tradePartner}</strong>
+                Traded with <strong>{highlight(log.tradePartner, activeQuery)}</strong>
               </div>
             )}
             {(log.creationBackground || log.creationClass) && (
@@ -159,13 +245,16 @@ export function LogHistory({
                 {log.creationBackground && (
                   <>
                     Background:{' '}
-                    <strong>{creationPickLabel(log.creationBackground, 'background')}</strong>
+                    <strong>
+                      {highlight(creationPickLabel(log.creationBackground, 'background'), activeQuery)}
+                    </strong>
                   </>
                 )}
                 {log.creationBackground && log.creationClass && ' · '}
                 {log.creationClass && (
                   <>
-                    Class: <strong>{creationPickLabel(log.creationClass, 'class')}</strong>
+                    Class:{' '}
+                    <strong>{highlight(creationPickLabel(log.creationClass, 'class'), activeQuery)}</strong>
                   </>
                 )}
               </div>
@@ -174,11 +263,11 @@ export function LogHistory({
               <div className="log-line muted">
                 {log.dm && (
                   <>
-                    DM: <strong>{log.dm}</strong>
+                    DM: <strong>{highlight(log.dm, activeQuery)}</strong>
                   </>
                 )}
                 {log.dm && log.location && ' · '}
-                {log.location && <>at {log.location}</>}
+                {log.location && <>at {highlight(log.location, activeQuery)}</>}
               </div>
             )}
             <div className="log-deltas">
@@ -202,7 +291,7 @@ export function LogHistory({
               <ul className="log-items">
                 {log.itemsGained.map((item) => (
                   <li key={item.id} className="delta-gain">
-                    + {item.name}
+                    + {highlight(item.name, activeQuery)}
                     {item.quantity > 1 ? ` ×${item.quantity}` : ''}{' '}
                     <span className="muted">
                       ({CATEGORY_LABELS_SINGULAR[item.category]}
@@ -217,14 +306,14 @@ export function LogHistory({
               <ul className="log-items">
                 {groupedLosses(log, itemNameById).map((loss) => (
                   <li key={`${loss.name}|${loss.reason}`} className="delta-loss">
-                    − {loss.name}
+                    − {highlight(loss.name, activeQuery)}
                     {loss.quantity > 1 ? ` ×${loss.quantity}` : ''}{' '}
                     <span className="muted">({LOSS_REASON_LABELS[loss.reason]})</span>
                   </li>
                 ))}
               </ul>
             )}
-            {log.notes && <div className="log-notes muted">{log.notes}</div>}
+            {log.notes && <div className="log-notes muted">{highlight(log.notes, activeQuery)}</div>}
           </div>
         </article>
         ),

@@ -9,6 +9,8 @@ import {
 } from '../types';
 import { ItemEditModal, type ItemEditChanges } from './ItemEditModal';
 import { spellLevelLabel } from '../spells';
+import { highlight, MIN_QUERY_LENGTH } from '../searchHighlight';
+import { itemSearchText } from '../itemSearch';
 
 interface Props {
   character: Character;
@@ -34,12 +36,21 @@ export function Inventory({ character, derived, onToggleMark, onEditItem }: Prop
       return next;
     });
   }
+  // Full-text search across name, description, minor property, category, rarity,
+  // spell level, and copied-from partner — see itemSearchText.
+  const [search, setSearch] = useState('');
+  const query = search.trim().toLowerCase();
+  const activeQuery = query.length >= MIN_QUERY_LENGTH ? query : '';
+
   // remaining < 0 means more was lost/used than ever gained — an invalid log somewhere.
   // Show those with a warning instead of hiding them, so the user can find and fix it.
   const visibleItems = derived.allItems.filter((i) => i.remaining !== 0);
+  const matchedItems = activeQuery
+    ? visibleItems.filter((i) => itemSearchText(i).includes(activeQuery))
+    : visibleItems;
 
   const byCategory = new Map<ItemCategory, InventoryItem[]>();
-  for (const item of visibleItems) {
+  for (const item of matchedItems) {
     const list = byCategory.get(item.category) ?? [];
     list.push(item);
     byCategory.set(item.category, list);
@@ -69,12 +80,48 @@ export function Inventory({ character, derived, onToggleMark, onEditItem }: Prop
     );
   }
 
+  const searchBar = (
+    <div className="search-bar">
+      <input
+        type="search"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search inventory — name, description, category…"
+        aria-label="Search inventory"
+      />
+      {search && (
+        <button type="button" className="btn btn-ghost btn-small" onClick={() => setSearch('')}>
+          ✕ Clear
+        </button>
+      )}
+      {query && !activeQuery && (
+        <span className="muted search-hint">Keep typing… ({MIN_QUERY_LENGTH}+ characters)</span>
+      )}
+    </div>
+  );
+
   return (
     <div className="inventory">
+      {searchBar}
+      {activeQuery && (
+        <p className="muted search-summary">
+          {matchedItems.length} of {visibleItems.length} items match
+        </p>
+      )}
+      {activeQuery && matchedItems.length === 0 && (
+        <div className="empty-state">
+          <p>No items match "{search.trim()}".</p>
+          <button type="button" className="btn btn-ghost btn-small" onClick={() => setSearch('')}>
+            Clear search
+          </button>
+        </div>
+      )}
       {ITEM_CATEGORIES.map((category) => {
         const items = byCategory.get(category);
         if (!items?.length) return null;
-        const isCollapsed = collapsed.has(category);
+        // Force sections open while actively searching, so a match hiding behind
+        // a manually-collapsed section is never invisible.
+        const isCollapsed = !activeQuery && collapsed.has(category);
         return (
           <section key={category} className="card inventory-section">
             <h2>
@@ -97,7 +144,7 @@ export function Inventory({ character, derived, onToggleMark, onEditItem }: Prop
                   <li key={item.id} className="inventory-item">
                     <div className="inventory-item-main">
                       <span className="inventory-item-name">
-                        {item.name}
+                        {highlight(item.name, activeQuery)}
                         {item.quantity > 1 || item.remaining !== item.quantity ? (
                           <span className={item.remaining < 0 ? 'delta-loss' : 'muted'}>
                             {' '}
@@ -132,9 +179,15 @@ export function Inventory({ character, derived, onToggleMark, onEditItem }: Prop
                         There is an invalid log — check this item's gains and losses.
                       </div>
                     )}
-                    {item.description && <div className="inventory-item-desc muted">{item.description}</div>}
+                    {item.description && (
+                      <div className="inventory-item-desc muted">
+                        {highlight(item.description, activeQuery)}
+                      </div>
+                    )}
                     {item.minorProperty && (
-                      <div className="inventory-item-desc muted">Minor property: {item.minorProperty}</div>
+                      <div className="inventory-item-desc muted">
+                        Minor property: {highlight(item.minorProperty, activeQuery)}
+                      </div>
                     )}
                     {!STACKED_CATEGORIES.includes(category) && (
                       <div className="inventory-item-meta muted">Acquired {item.acquiredDate}</div>
