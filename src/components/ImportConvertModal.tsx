@@ -13,6 +13,9 @@ interface Props {
   intro?: ReactNode;
   /** Muted hint at the bottom of the choose step comparing the two engines. */
   engineHint?: ReactNode;
+  /** Warning shown on the chatbot step, under the privacy note — e.g. long-log
+   * length-limit caveats. Omit where it doesn't apply. */
+  chatbotWarning?: ReactNode;
   /** Runs the offline converter (throws on failure). Omit for AI-only sources
    * (free-form formats no offline heuristic can exist for) — the modal then skips
    * the engine chooser and opens straight on the chatbot step. */
@@ -42,6 +45,7 @@ export function ImportConvertModal({
   intro,
   engineHint,
   quickImport,
+  chatbotWarning,
   buildPrompt,
   parseReply,
   onResult,
@@ -97,13 +101,13 @@ export function ImportConvertModal({
               Paste them into any AI chatbot you already use — ChatGPT, Claude, Gemini… — and
               send.
             </li>
-            <li>Copy the chatbot's whole reply and paste it below.</li>
+            <li>Copy the AI chatbot's whole reply and paste it below.</li>
           </ol>
           <textarea
             value={reply}
             onChange={(e) => setReply(e.target.value)}
             rows={7}
-            placeholder="Paste the chatbot's reply here…"
+            placeholder="Paste the AI chatbot's reply here…"
           />
           <div className="modal-actions">
             {quickImport && (
@@ -124,9 +128,10 @@ export function ImportConvertModal({
             </button>
           </div>
           <p className="muted modal-hint">
-            Your data only goes to the chatbot you paste it into — nowhere else. You'll still
+            Your data only goes to the AI chatbot you paste it into — nowhere else. You'll still
             get the usual preview before anything is imported.
           </p>
+          {chatbotWarning && <p className="warning modal-hint">{chatbotWarning}</p>}
         </div>
       </Modal>
     );

@@ -21,6 +21,13 @@ export function ImportCsvLog({ csvText, fileName, onResult, onClose }: Props) {
       title="Import from CSV Log"
       chatbotTitle="Convert the CSV Log with an AI Chatbot"
       fileName={fileName}
+      chatbotWarning={
+        <>
+          ⚠ For a very long log history, a free AI chatbot will probably hit its length limit and
+          refuse (or fail) the conversion — a <strong>paid or larger-context AI chatbot</strong> will
+          handle a big file more reliably.
+        </>
+      }
       buildPrompt={() => buildCsvChatbotPrompt(csvText, fileName)}
       parseReply={(reply) => parseCsvChatbotReply(reply, fileName)}
       onResult={onResult}

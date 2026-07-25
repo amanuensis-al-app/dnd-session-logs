@@ -359,6 +359,11 @@ export function CharacterList({
                 careful AI-chatbot pass, then review everything in a preview before it's actually
                 added.
               </p>
+              <p className="warning">
+                ⚠ For a very long log history, a free AI chatbot will probably hit its length limit
+                and refuse (or fail) the conversion — try <strong>Quick Import</strong> instead, or
+                use a <strong>paid or larger-context AI chatbot</strong> for a big file.
+              </p>
             </>
           )}
           {importInfo === 'csv' && (
@@ -371,8 +376,13 @@ export function CharacterList({
               </p>
               <p className="muted">
                 There's no offline conversion for this one — an AI chatbot reverse-engineers the
-                layout. After you pick the file you'll copy instructions to a chatbot of your
+                layout. After you pick the file you'll copy instructions to an AI chatbot of your
                 choice, paste its reply back in, and review a preview before anything is added.
+              </p>
+              <p className="warning">
+                ⚠ For a very long log history, a free AI chatbot will probably hit its length limit
+                and refuse (or fail) the conversion — a <strong>paid or larger-context AI chatbot</strong>{' '}
+                will handle a big file more reliably.
               </p>
             </>
           )}

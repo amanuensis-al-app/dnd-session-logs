@@ -34,6 +34,13 @@ export function ImportAlLog({ csvText, fileName, onResult, onClose }: Props) {
           you'll have to fix by hand.
         </>
       }
+      chatbotWarning={
+        <>
+          ⚠ For a very long log history, a free AI chatbot will probably hit its length limit and
+          refuse (or fail) the conversion — try <strong>Quick Import</strong> instead, or use a{' '}
+          <strong>paid or larger-context AI chatbot</strong> for a big file.
+        </>
+      }
       quickImport={() => importAlLog(csvText)}
       buildPrompt={() => buildAlChatbotPrompt(csvText)}
       parseReply={(reply) => parseAlChatbotReply(reply, csvText)}

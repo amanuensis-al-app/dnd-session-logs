@@ -73,13 +73,13 @@ export function AddLogFromText({ characterId, onDraft, onClose }: Props) {
               Paste them into any AI chatbot you already use — ChatGPT, Claude, Gemini… — and
               send.
             </li>
-            <li>Copy the chatbot's whole reply and paste it below.</li>
+            <li>Copy the AI chatbot's whole reply and paste it below.</li>
           </ol>
           <textarea
             value={reply}
             onChange={(e) => setReply(e.target.value)}
             rows={7}
-            placeholder="Paste the chatbot's reply here…"
+            placeholder="Paste the AI chatbot's reply here…"
           />
           <div className="modal-actions">
             <button type="button" className="btn btn-ghost" onClick={() => setStep('paste')}>
@@ -98,7 +98,7 @@ export function AddLogFromText({ characterId, onDraft, onClose }: Props) {
             </button>
           </div>
           <p className="muted modal-hint">
-            Your text only goes to the chatbot you paste it into — nowhere else.
+            Your text only goes to the AI chatbot you paste it into — nowhere else.
           </p>
         </div>
       </Modal>
@@ -142,7 +142,7 @@ export function AddLogFromText({ characterId, onDraft, onClose }: Props) {
         </div>
         <p className="muted modal-hint">
           <strong>Use an AI Chatbot</strong> understands any format — it walks you through using
-          a chatbot you already have, for free. <strong>Quick Fill</strong> is instant and
+          an AI chatbot you already have, for free. <strong>Quick Fill</strong> is instant and
           offline, but only catches what it recognises — best for neatly formatted posts.
         </p>
       </div>

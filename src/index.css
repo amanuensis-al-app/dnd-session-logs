@@ -230,16 +230,15 @@ h2 {
 }
 
 .import-btn-group {
-  position: relative;
   display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-right: 0.6rem;
 }
 
 .import-info-button {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   display: flex;
   align-items: center;
@@ -249,6 +248,7 @@ h2 {
   font-weight: 700;
   font-size: 0.7rem;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .import-warnings {
