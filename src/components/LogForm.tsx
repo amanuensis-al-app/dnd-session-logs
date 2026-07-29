@@ -29,7 +29,7 @@ import { CREATION_BACKGROUNDS, CREATION_CLASSES, ITEM_CATALOG } from '../catalog
 import type { CreationOption } from '../catalog';
 import { expandPacks } from '../packs';
 import { MagicItemNameField } from './MagicItemNameField';
-import { formatGp, sortLogs } from '../derive';
+import { deriveCharacter, formatGp, sortLogs } from '../derive';
 import {
   copyCostForLevel,
   copyDowntimeForLevel,
@@ -46,6 +46,12 @@ interface Props {
   derived: DerivedStats;
   /** All of this character's logs, for looking up what an item was bought for. */
   characterLogs: LogEntry[];
+  /** Every character (incl. this one) — lets a new Trade log pick another of the
+   * user's own characters as the partner instead of an external free-text name. */
+  characters: Character[];
+  /** Every log across every character — used to derive a trade partner
+   * character's current magic-item inventory when they're one of `characters`. */
+  allLogs: LogEntry[];
   /** Every DM name ever logged, for the dropdown. */
   knownDMs: string[];
   /** Every location ever logged, for the dropdown. */
@@ -56,6 +62,9 @@ interface Props {
    * the log gets saved as a fresh entry (new id/createdAt). */
   prefill?: LogEntry;
   onSave: (log: LogEntry) => void;
+  /** Saves BOTH halves of a new Trade made with another of the user's own
+   * characters — see the "Trading with" character/item pickers below. */
+  onSaveLinkedTrade: (mine: LogEntry, other: LogEntry) => void;
   onCancel: () => void;
 }
 
@@ -299,11 +308,14 @@ export function LogForm({
   character,
   derived,
   characterLogs,
+  characters,
+  allLogs,
   knownDMs,
   knownLocations,
   existingLog,
   prefill,
   onSave,
+  onSaveLinkedTrade,
   onCancel,
 }: Props) {
   const editing = existingLog !== undefined;
@@ -442,6 +454,16 @@ export function LogForm({
       ? (existingLog.itemsGained[0]?.requiresAttunement ?? true)
       : true,
   );
+  // Trading with another of the user's own characters (as opposed to an external,
+  // untracked partner) — only offered when CREATING a new Trade log (not editing:
+  // an existing linked trade is edited with the plain fields below, same as an
+  // external one, and just gets a warning banner — see `existingLog?.linkedTrade`).
+  // Picking a partner character replaces the free-text "Traded with" name with a
+  // character picker, and the "Received" fieldset with a picker over THAT
+  // character's own current magic items instead of freeform entry.
+  const [tradePartnerMode, setTradePartnerMode] = useState<'external' | 'character'>('external');
+  const [tradePartnerCharacterId, setTradePartnerCharacterId] = useState('');
+  const [tradePartnerItemId, setTradePartnerItemId] = useState('');
 
   // Copy Spell rows — used by Copy Spell logs AND Free Logs (there without the
   // auto gp/downtime). Editing rebuilds them from the saved gains: level from
@@ -534,6 +556,31 @@ export function LogForm({
     derived.downtimeDays +
     (existingLog ? existingLog.downtimeSpent - existingLog.downtimeGained : 0);
   const tradeLostItem = ownedMagicItems.find((i) => i.id === tradeLostItemId);
+
+  // Character-to-character trade: every OTHER character to pick as the partner,
+  // that partner's derived state (only computed once one is actually picked — this
+  // is the only place a LogForm looks at data outside its own character), their
+  // current magic items to receive, and the specific one picked.
+  const otherCharacters = useMemo(
+    () => characters.filter((c) => c.id !== character.id),
+    [characters, character.id],
+  );
+  const tradePartnerCharacter = otherCharacters.find((c) => c.id === tradePartnerCharacterId);
+  const tradePartnerDerived = useMemo(
+    () => (tradePartnerCharacter ? deriveCharacter(tradePartnerCharacter, allLogs) : undefined),
+    [tradePartnerCharacter, allLogs],
+  );
+  const tradePartnerMagicItems = useMemo(
+    () =>
+      (tradePartnerDerived?.allItems ?? []).filter(
+        (i) => i.category === 'magic_item' && i.remaining > 0,
+      ),
+    [tradePartnerDerived],
+  );
+  const tradePartnerItem = tradePartnerMagicItems.find((i) => i.id === tradePartnerItemId);
+  // Only a NEW transaction log in 'character' mode gets the character/item pickers
+  // below — editing (linked or not) always uses the plain external-style fields.
+  const isCharacterTrade = type === 'transaction' && !editing && tradePartnerMode === 'character';
 
   // Purchase logs derive their GP spent from the item costs (rounded to copper).
   const purchaseTotal =
@@ -959,8 +1006,96 @@ export function LogForm({
     }
   }
 
+  /**
+   * A Trade with another of the user's own characters saves TWO independent log
+   * entries — one per character, each fully self-consistent (see LinkedTrade in
+   * types.ts) — instead of the single entry every other log type produces. Only
+   * reachable when CREATING a new transaction log with `tradePartnerMode ===
+   * 'character'`; editing an existing (possibly linked) trade always goes through
+   * the plain `buildLog()` path below, single-log, same as an external trade.
+   */
+  function buildLinkedTrade(): { mine: LogEntry; other: LogEntry } | string {
+    if (!tradeLostItem) return 'Pick the magic item you are trading away.';
+    if (!tradePartnerCharacter) return 'Pick which character you are trading with.';
+    if (!tradePartnerItem) {
+      return `Pick the magic item to receive from ${tradePartnerCharacter.name}.`;
+    }
+    const myLogId = newId();
+    const otherLogId = newId();
+    const now = Date.now();
+    const mine: LogEntry = {
+      id: myLogId,
+      characterId: character.id,
+      type: 'transaction',
+      date,
+      time: time || undefined,
+      title: title.trim() || `Traded ${tradeLostItem.name} for ${tradePartnerItem.name}`,
+      notes: notes.trim() || undefined,
+      gpGained: 0,
+      gpLost: 0,
+      downtimeGained: 0,
+      downtimeSpent: 5,
+      levelGained: 0,
+      tradePartner: tradePartnerCharacter.name,
+      itemsGained: [
+        {
+          id: newId(),
+          name: tradePartnerItem.name,
+          category: 'magic_item',
+          rarity: tradePartnerItem.rarity,
+          quantity: 1,
+          description: tradePartnerItem.description,
+          minorProperty: tradePartnerItem.minorProperty,
+          requiresAttunement: tradePartnerItem.requiresAttunement,
+        },
+      ],
+      itemsLost: [{ itemId: tradeLostItem.id, quantity: 1, reason: 'traded' }],
+      linkedTrade: { characterId: tradePartnerCharacter.id, logId: otherLogId },
+      createdAt: now,
+    };
+    const other: LogEntry = {
+      id: otherLogId,
+      characterId: tradePartnerCharacter.id,
+      type: 'transaction',
+      date,
+      time: time || undefined,
+      title: `Traded ${tradePartnerItem.name} for ${tradeLostItem.name}`,
+      gpGained: 0,
+      gpLost: 0,
+      downtimeGained: 0,
+      downtimeSpent: 5,
+      levelGained: 0,
+      tradePartner: character.name,
+      itemsGained: [
+        {
+          id: newId(),
+          name: tradeLostItem.name,
+          category: 'magic_item',
+          rarity: tradeLostItem.rarity,
+          quantity: 1,
+          description: tradeLostItem.description,
+          minorProperty: tradeLostItem.minorProperty,
+          requiresAttunement: tradeLostItem.requiresAttunement,
+        },
+      ],
+      itemsLost: [{ itemId: tradePartnerItem.id, quantity: 1, reason: 'traded' }],
+      linkedTrade: { characterId: character.id, logId: myLogId },
+      createdAt: now,
+    };
+    return { mine, other };
+  }
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (type === 'transaction' && !editing && tradePartnerMode === 'character') {
+      const result = buildLinkedTrade();
+      if (typeof result === 'string') {
+        alert(result);
+        return;
+      }
+      onSaveLinkedTrade(result.mine, result.other);
+      return;
+    }
     const result = buildLog();
     if (typeof result === 'string') {
       alert(result);
@@ -1029,11 +1164,24 @@ export function LogForm({
         ))}
       </div>
       <p className="muted log-form-help">{TYPE_HELP[type]}</p>
+      {type === 'transaction' && editing && existingLog?.linkedTrade && (
+        <p className="warning">
+          ⚠ This is one half of a Trade with {existingLog.tradePartner ?? 'another character'}.
+          Changes here won't update their matching log automatically — edit or delete it there too
+          if needed.
+        </p>
+      )}
       {downtimeWarning && (
         <p className="warning">
           ⚠ {character.name} has only {downtimeAvailable} downtime days — this log spends{' '}
           {type === 'catchup' ? catchupLevels * 10 : type === 'copy_spell' ? num(downtimeSpent) : 5}.
           It will still be recorded if you save.
+        </p>
+      )}
+      {isCharacterTrade && tradePartnerCharacter && tradePartnerDerived && tradePartnerDerived.downtimeDays < 5 && (
+        <p className="warning">
+          ⚠ {tradePartnerCharacter.name} has only {tradePartnerDerived.downtimeDays} downtime days —
+          this trade spends 5 for them too. It will still be recorded if you save.
         </p>
       )}
 
@@ -1048,7 +1196,28 @@ export function LogForm({
           </span>
           <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
         </label>
-        {type === 'transaction' && (
+        {type === 'transaction' && !editing && otherCharacters.length > 0 && (
+          <label>
+            Trading with
+            <select
+              value={tradePartnerMode}
+              onChange={(e) => {
+                const mode = e.target.value as 'external' | 'character';
+                setTradePartnerMode(mode);
+                if (mode === 'external') {
+                  setTradePartnerCharacterId('');
+                  setTradePartnerItemId('');
+                } else {
+                  setTradePartner('');
+                }
+              }}
+            >
+              <option value="external">An external partner</option>
+              <option value="character">One of my characters</option>
+            </select>
+          </label>
+        )}
+        {type === 'transaction' && !isCharacterTrade && (
           <label>
             Traded with *
             <input
@@ -1057,6 +1226,26 @@ export function LogForm({
               placeholder="player / character name"
               required
             />
+          </label>
+        )}
+        {isCharacterTrade && (
+          <label>
+            Character *
+            <select
+              value={tradePartnerCharacterId}
+              onChange={(e) => {
+                setTradePartnerCharacterId(e.target.value);
+                setTradePartnerItemId('');
+              }}
+              required
+            >
+              <option value="">— pick a character —</option>
+              {otherCharacters.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
           </label>
         )}
       </div>
@@ -1384,6 +1573,9 @@ export function LogForm({
         <>
           <p className="log-form-fixed">
             Fixed effect: <span className="delta delta-loss">−5 downtime days</span>
+            {isCharacterTrade && tradePartnerCharacter && (
+              <span className="muted"> (spent by both {character.name} and {tradePartnerCharacter.name})</span>
+            )}
           </p>
 
           <fieldset className="log-form-items log-form-trade-side">
@@ -1415,62 +1607,118 @@ export function LogForm({
 
           <fieldset className="log-form-items log-form-trade-side">
             <legend>↓ Received</legend>
-            <div className="field-stack">
-              <span>Magic item *</span>
-              <MagicItemNameField
-                value={tradeGainedName}
-                onChangeName={setTradeGainedName}
-                onPick={(item) => {
-                  setTradeGainedName(item.name);
-                  setTradeGainedRequiresAttunement(item.requiresAttunement);
-                  // Rarity deliberately untouched: a trade keeps the rarity of the
-                  // item given away (see the note below the fields).
-                }}
-              />
-            </div>
-            <div className="form-grid">
-              <label>
-                Minor property
-                <select
-                  value={tradeGainedMinorProperty}
-                  onChange={(e) =>
-                    setTradeGainedMinorProperty(e.target.value as MinorProperty | '')
-                  }
-                >
-                  <option value="">— none —</option>
-                  {MINOR_PROPERTIES.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
+            {isCharacterTrade ? (
+              <>
+                <label>
+                  Magic item *
+                  <select
+                    value={tradePartnerItemId}
+                    onChange={(e) => setTradePartnerItemId(e.target.value)}
+                    disabled={!tradePartnerCharacter}
+                  >
+                    <option value="">
+                      {tradePartnerCharacter
+                        ? '— pick from their inventory —'
+                        : '— pick a character first —'}
                     </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Attunement
-                <select
-                  value={tradeGainedRequiresAttunement ? 'required' : 'not-required'}
-                  onChange={(e) =>
-                    setTradeGainedRequiresAttunement(e.target.value === 'required')
-                  }
-                >
-                  <option value="required">Requires Attunement</option>
-                  <option value="not-required">Attunement Not Required</option>
-                </select>
-              </label>
-              <label>
-                Description
-                <input
-                  value={tradeGainedDescription}
-                  onChange={(e) => setTradeGainedDescription(e.target.value)}
-                  placeholder="description (optional)"
-                />
-              </label>
-            </div>
-            {tradeLostItem?.rarity && (
-              <p className="muted log-form-trade-note">
-                Will be recorded as <strong>{tradeLostItem.rarity}</strong> (same rarity as the
-                item given away).
-              </p>
+                    {tradePartnerMagicItems.map((i) => (
+                      <option key={i.id} value={i.id}>
+                        {i.name}
+                        {i.rarity ? ` (${i.rarity})` : ''}
+                        {minorPropertySuffix(i)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {tradePartnerItem && (tradePartnerItem.minorProperty || tradePartnerItem.description) && (
+                  <p className="muted log-form-trade-note">
+                    {tradePartnerItem.minorProperty && (
+                      <>Minor property: {tradePartnerItem.minorProperty}</>
+                    )}
+                    {tradePartnerItem.minorProperty && tradePartnerItem.description && ' — '}
+                    {tradePartnerItem.description}
+                  </p>
+                )}
+                {tradePartnerItem && (
+                  <p className="muted log-form-trade-note">
+                    {(tradePartnerItem.requiresAttunement ?? true)
+                      ? 'Requires attunement'
+                      : 'Attunement not required'}
+                  </p>
+                )}
+                {tradePartnerCharacter && tradePartnerMagicItems.length === 0 && (
+                  <p className="warning">
+                    ⚠ {tradePartnerCharacter.name} owns no magic items to trade.
+                  </p>
+                )}
+                {tradeLostItem && tradePartnerItem && tradeLostItem.rarity !== tradePartnerItem.rarity && (
+                  <p className="warning">
+                    ⚠ Rarity mismatch: giving away {tradeLostItem.rarity ?? 'an unknown rarity'},
+                    receiving {tradePartnerItem.rarity ?? 'an unknown rarity'}. AL trades normally
+                    require matching rarity — this will still be recorded if you save.
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="field-stack">
+                  <span>Magic item *</span>
+                  <MagicItemNameField
+                    value={tradeGainedName}
+                    onChangeName={setTradeGainedName}
+                    onPick={(item) => {
+                      setTradeGainedName(item.name);
+                      setTradeGainedRequiresAttunement(item.requiresAttunement);
+                      // Rarity deliberately untouched: a trade keeps the rarity of the
+                      // item given away (see the note below the fields).
+                    }}
+                  />
+                </div>
+                <div className="form-grid">
+                  <label>
+                    Minor property
+                    <select
+                      value={tradeGainedMinorProperty}
+                      onChange={(e) =>
+                        setTradeGainedMinorProperty(e.target.value as MinorProperty | '')
+                      }
+                    >
+                      <option value="">— none —</option>
+                      {MINOR_PROPERTIES.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Attunement
+                    <select
+                      value={tradeGainedRequiresAttunement ? 'required' : 'not-required'}
+                      onChange={(e) =>
+                        setTradeGainedRequiresAttunement(e.target.value === 'required')
+                      }
+                    >
+                      <option value="required">Requires Attunement</option>
+                      <option value="not-required">Attunement Not Required</option>
+                    </select>
+                  </label>
+                  <label>
+                    Description
+                    <input
+                      value={tradeGainedDescription}
+                      onChange={(e) => setTradeGainedDescription(e.target.value)}
+                      placeholder="description (optional)"
+                    />
+                  </label>
+                </div>
+                {tradeLostItem?.rarity && (
+                  <p className="muted log-form-trade-note">
+                    Will be recorded as <strong>{tradeLostItem.rarity}</strong> (same rarity as the
+                    item given away).
+                  </p>
+                )}
+              </>
             )}
           </fieldset>
         </>

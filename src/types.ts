@@ -218,7 +218,28 @@ export interface LogEntry {
   creationBackground?: CreationPick;
   /** Creation ("Starting") logs: the picked class starting package. */
   creationClass?: CreationPick;
+  /** Transaction logs only: set when this Trade was with ANOTHER of the user's own
+   * characters (as opposed to an untracked external partner) — see LinkedTrade. */
+  linkedTrade?: LinkedTrade;
   createdAt: number;
+}
+
+/**
+ * Soft pointer from one side of a character-to-character Trade to its mirror log
+ * on the OTHER character (added 2026-07-29, owner request: "trade with your own
+ * character"). Deliberately NOT a real relational link — there is no cross-log
+ * referential integrity anywhere in this app (see e.g. LostItem.itemId dangling
+ * when its source log is deleted), and this is no exception: editing or deleting
+ * one side never touches the other automatically. It exists purely so the UI can
+ * WARN "this is one half of a trade, go check the other side" when the user edits
+ * or deletes a linked log — see LogHistory's delete confirm() and LogForm's
+ * edit-time warning banner. A dangling link (the other character or log was since
+ * deleted) is harmless: lookups just fail to resolve and the warning is skipped or
+ * falls back to the log's own stored `tradePartner` name.
+ */
+export interface LinkedTrade {
+  characterId: string;
+  logId: string;
 }
 
 // ---- Characters ---------------------------------------------------------------

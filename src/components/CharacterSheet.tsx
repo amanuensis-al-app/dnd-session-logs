@@ -21,6 +21,9 @@ interface Props {
   character: Character;
   derived: DerivedStats;
   logs: LogEntry[];
+  /** Every character (incl. this one) — passed through to LogForm so a new Trade
+   * log can pick another of the user's own characters as the partner. */
+  characters: Character[];
   onSaveCharacter: (character: Character) => void;
   onDeleteCharacter: (characterId: string) => void;
   onSaveLog: (log: LogEntry) => void;
@@ -37,6 +40,7 @@ export function CharacterSheet({
   character,
   derived,
   logs,
+  characters,
   onSaveCharacter,
   onDeleteCharacter,
   onSaveLog,
@@ -99,6 +103,15 @@ export function CharacterSheet({
    * Prep's cap input. */
   function setAttunementCap(cap: number | undefined) {
     onSaveCharacter({ ...character, attunementCap: cap });
+  }
+
+  /** Saves both halves of a Trade made with another of the user's own characters
+   * (LogForm's `onSaveLinkedTrade`) — two independent log upserts, one per
+   * character. No transactional guarantee beyond that, same as everywhere else in
+   * the app (each log is its own IndexedDB record). */
+  function saveLinkedTrade(mine: LogEntry, other: LogEntry) {
+    onSaveLog(other);
+    onSaveLog(mine);
   }
 
   /** Saves Inventory-tab item edits. A non-stacked item lives in exactly one log, so
@@ -360,12 +373,19 @@ export function CharacterSheet({
               character={character}
               derived={derived}
               characterLogs={characterLogs}
+              characters={characters}
+              allLogs={logs}
               knownDMs={knownValues(logs, 'dm')}
               knownLocations={knownValues(logs, 'location')}
               existingLog={editingLog ?? undefined}
               prefill={prefillDraft?.prefill}
               onSave={(log) => {
                 onSaveLog(log);
+                setLogDraft(null);
+                setTab('logs');
+              }}
+              onSaveLinkedTrade={(mine, other) => {
+                saveLinkedTrade(mine, other);
                 setLogDraft(null);
                 setTab('logs');
               }}

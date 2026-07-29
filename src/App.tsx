@@ -389,6 +389,7 @@ export default function App() {
             character={activeCharacter}
             derived={derivedByCharacter.get(activeCharacter.id)!}
             logs={logs}
+            characters={characters}
             onSaveCharacter={saveCharacter}
             onDeleteCharacter={removeCharacter}
             onSaveLog={saveLog}

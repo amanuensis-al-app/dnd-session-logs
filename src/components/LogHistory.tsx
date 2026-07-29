@@ -4,6 +4,7 @@ import { CATEGORY_LABELS_SINGULAR, LOG_TYPE_LABELS, LOSS_REASON_LABELS } from '.
 import { formatGp, groupedLosses } from '../derive';
 import { creationPickLabel } from '../catalog';
 import { highlight, MIN_QUERY_LENGTH } from '../searchHighlight';
+import { Modal } from './Modal';
 
 interface Props {
   /** Already filtered to one character and sorted in replay order. */
@@ -65,6 +66,10 @@ export function LogHistory({
   // Pagination: 30 cards per page — all logs are in memory anyway, this is about
   // not rendering hundreds of cards at once on slow machines.
   const [page, setPage] = useState(0);
+  // Deleting a log that's one half of a Trade with another character gets a proper
+  // modal (the stakes are higher — the other side won't be cleaned up
+  // automatically) instead of the plain window.confirm() every other log uses.
+  const [deleteLinkedConfirm, setDeleteLinkedConfirm] = useState<LogEntry | null>(null);
   // Full-text search across title, notes, DM/location/trade partner, creation
   // picks, and every gained/lost item's name — see searchTextFor.
   const [search, setSearch] = useState('');
@@ -225,8 +230,13 @@ export function LogHistory({
             <button
               className="btn btn-ghost btn-small"
               onClick={() => {
-                if (confirm(`Delete log "${log.title || log.date}"? Derived stats will recompute.`))
+                if (log.linkedTrade) {
+                  setDeleteLinkedConfirm(log);
+                } else if (
+                  confirm(`Delete log "${log.title || log.date}"? Derived stats will recompute.`)
+                ) {
                   onDeleteLog(log.id);
+                }
               }}
               title="Delete this log"
             >
@@ -238,6 +248,11 @@ export function LogHistory({
             {log.tradePartner && (
               <div className="log-line">
                 Traded with <strong>{highlight(log.tradePartner, activeQuery)}</strong>
+                {log.linkedTrade && (
+                  <span className="muted" title="This Trade was with one of your own characters — editing or deleting it here won't update their matching log automatically">
+                    {' '}🔗 linked
+                  </span>
+                )}
               </div>
             )}
             {(log.creationBackground || log.creationClass) && (
@@ -319,6 +334,33 @@ export function LogHistory({
         ),
       )}
       {pager}
+      {deleteLinkedConfirm && (
+        <Modal title="Delete linked Trade log?" onClose={() => setDeleteLinkedConfirm(null)}>
+          <p>
+            Delete log "{deleteLinkedConfirm.title || deleteLinkedConfirm.date}"? Derived stats
+            will recompute.
+          </p>
+          <p className="warning">
+            ⚠ This is one half of a Trade with{' '}
+            <strong>{deleteLinkedConfirm.tradePartner ?? 'another character'}</strong> — deleting
+            it here will NOT delete their matching log. Delete or update it there too if needed.
+          </p>
+          <div className="modal-actions">
+            <button className="btn btn-ghost" onClick={() => setDeleteLinkedConfirm(null)}>
+              Cancel
+            </button>
+            <button
+              className="btn btn-danger"
+              onClick={() => {
+                onDeleteLog(deleteLinkedConfirm.id);
+                setDeleteLinkedConfirm(null);
+              }}
+            >
+              Delete anyway
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
