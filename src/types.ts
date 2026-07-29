@@ -236,8 +236,9 @@ export type ItemMark = 'equipped';
 /**
  * Attunement state for an equipped magic item in the context of preparation
  * (`category === 'magic_item'` only — meaningless elsewhere). Absent = not attuned,
- * the default. A character can be attuned to at most 3 magic items at once (shared
- * cap across every rarity, see `ATTUNEMENT_CAP` in `tiers.ts`) — this type is just
+ * the default. A character can be attuned to at most `Character.attunementCap`
+ * magic items at once (default 3, shared cap across every rarity — see
+ * `DEFAULT_ATTUNEMENT_CAP`/`attunementCapFor` in `tiers.ts`) — this type is just
  * the stored shape, set from Prep's attunement dropdown.
  *
  * Whether an item REQUIRES attunement is a separate concern: a property of the item
@@ -269,6 +270,10 @@ export interface Character {
    * backup JSON; harmless if it dangles on an item that's since been unequipped or
    * lost, same philosophy as itemMarks. */
   attunement?: Record<string, AttunementState>;
+  /** Max simultaneously-attuned items, overriding the normal 3-item AL cap
+   * (`DEFAULT_ATTUNEMENT_CAP` in tiers.ts) — some classes/subclasses (e.g.
+   * Artificer) raise this. Absent = the default cap. */
+  attunementCap?: number;
   createdAt: number;
 }
 

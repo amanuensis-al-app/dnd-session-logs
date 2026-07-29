@@ -95,6 +95,12 @@ export function CharacterSheet({
     onSaveCharacter({ ...character, equipQuantities });
   }
 
+  /** Sets (or clears, if undefined) this character's max-attuned-items override —
+   * Prep's cap input. */
+  function setAttunementCap(cap: number | undefined) {
+    onSaveCharacter({ ...character, attunementCap: cap });
+  }
+
   /** Saves Inventory-tab item edits. A non-stacked item lives in exactly one log, so
    * the gain is rewritten there. A stacked item's id is content-derived from
    * category+name+rarity and shared by many logs, so renaming means rewriting every
@@ -402,6 +408,7 @@ export function CharacterSheet({
                 onToggleMark={toggleItemMark}
                 onSetAttunement={setItemAttunement}
                 onSetEquipQuantity={setEquipQuantity}
+                onSetAttunementCap={setAttunementCap}
               />
             )}
             {/* Always mounted (hidden off the Logs tab) so an in-place edit form's

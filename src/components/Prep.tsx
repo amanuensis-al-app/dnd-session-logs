@@ -2,7 +2,8 @@ import { useState } from 'react';
 import type { AttunementState, Character, DerivedStats, InventoryItem, Rarity } from '../types';
 import { EQUIPPABLE_CATEGORIES, RARITIES } from '../types';
 import {
-  ATTUNEMENT_CAP,
+  attunementCapFor,
+  DEFAULT_ATTUNEMENT_CAP,
   PREP_POOL_LABELS,
   PREP_POOL_ORDER,
   prepLimit,
@@ -23,6 +24,9 @@ interface Props {
   /** Sets how many units of an equipped consumable stack are prepped (undefined =
    * the whole stack). */
   onSetEquipQuantity: (itemId: string, quantity: number | undefined) => void;
+  /** Sets this character's max-attuned-items override (undefined = back to the
+   * default cap). */
+  onSetAttunementCap: (cap: number | undefined) => void;
 }
 
 const rarityRank = (r?: Rarity) => (r ? RARITIES.indexOf(r) : -1);
@@ -49,10 +53,11 @@ const QUANTITY_POOLS: PrepPool[] = ['consumable', 'equipment'];
  * Magic items (both pools) also get an attunement dropdown when the item requires
  * attunement (its own `requiresAttunement` property — set from the Inventory tab or
  * the log form): Not Attuned / Attuned. The "Attuned" option is disabled once the
- * character hits the shared 3-item cap (ATTUNEMENT_CAP in tiers.ts), so it can be
- * seen but not selected, same "cannot be selected" behavior for whichever item
- * would push the count over the cap. Items that don't require attunement show a
- * static "Attunement Not Required" tag instead of the dropdown.
+ * character hits their attunement cap (3 by default, editable in this tab —
+ * see `Character.attunementCap` in types.ts), so it can be seen but not
+ * selected, same "cannot be selected" behavior for whichever item would push
+ * the count over the cap. Items that don't require attunement show a static
+ * "Attunement Not Required" tag instead of the dropdown.
  *
  * Consumable and Equipment stacks prep by QUANTITY, not per stack: an equipped
  * stack shows a quantity picker (1…remaining; default the whole stack, stored
@@ -60,8 +65,16 @@ const QUANTITY_POOLS: PrepPool[] = ['consumable', 'equipment'];
  * used number — prepping 3 of 5 potions uses 3 consumable slots. Equipment's
  * count is informational only, its pool being uncapped.
  */
-export function Prep({ character, derived, onToggleMark, onSetAttunement, onSetEquipQuantity }: Props) {
+export function Prep({
+  character,
+  derived,
+  onToggleMark,
+  onSetAttunement,
+  onSetEquipQuantity,
+  onSetAttunementCap,
+}: Props) {
   const tier = tierForLevel(derived.level);
+  const attunementCap = attunementCapFor(character.attunementCap);
 
   // Full-text search, same fields/threshold as Inventory (see itemSearch.ts).
   // Display only: (1) non-matching equipped rows are hidden (matches are shown,
@@ -101,7 +114,7 @@ export function Prep({ character, derived, onToggleMark, onSetAttunement, onSetE
       : equipped.length;
 
   // Shared across both magic item pools — a character is attuned to at most
-  // ATTUNEMENT_CAP items total, regardless of rarity. Only items that require
+  // attunementCap items total, regardless of rarity. Only items that require
   // attunement can hold a cap slot; a stray 'attuned' mark on a not-required item
   // (flag flipped after attuning) doesn't count.
   const attunedCount = MAGIC_ITEM_POOLS.reduce(
@@ -150,7 +163,24 @@ export function Prep({ character, derived, onToggleMark, onSetAttunement, onSetE
         </p>
       )}
       <p className="muted prep-tier">
-        Tier {tier} · Level {derived.level} · Attunement {attunedCount}/{ATTUNEMENT_CAP}
+        Tier {tier} · Level {derived.level} · Attunement {attunedCount}/
+        <input
+          type="number"
+          min={0}
+          className="attunement-cap-input"
+          value={attunementCap}
+          title="Max simultaneously attuned items — raise this for class/subclass features that increase the normal 3-item limit (e.g. Artificer)"
+          onChange={(e) => {
+            const raw = e.target.value;
+            if (raw === '') {
+              onSetAttunementCap(undefined);
+              return;
+            }
+            const v = Math.max(0, Math.round(Number(raw)));
+            if (!Number.isFinite(v)) return;
+            onSetAttunementCap(v === DEFAULT_ATTUNEMENT_CAP ? undefined : v);
+          }}
+        />
       </p>
       {PREP_POOL_ORDER.map((pool) => {
         const limit = prepLimit(tier, pool);
@@ -250,7 +280,7 @@ export function Prep({ character, derived, onToggleMark, onSetAttunement, onSetE
                             <option value="">Not Attuned</option>
                             <option
                               value="attuned"
-                              disabled={!attuned && attunedCount >= ATTUNEMENT_CAP}
+                              disabled={!attuned && attunedCount >= attunementCap}
                             >
                               Attuned
                             </option>

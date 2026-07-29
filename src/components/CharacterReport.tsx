@@ -9,7 +9,7 @@ import {
 import { formatGp, groupedLosses } from '../derive';
 import { creationPickLabel } from '../catalog';
 import {
-  ATTUNEMENT_CAP,
+  attunementCapFor,
   PREP_POOL_LABELS,
   prepLimit,
   prepPoolOf,
@@ -47,6 +47,7 @@ const REPORT_POOL_ORDER: PrepPool[] = [
  */
 export function CharacterReport({ character, derived, logs, onClose }: Props) {
   const tier = tierForLevel(derived.level);
+  const attunementCap = attunementCapFor(character.attunementCap);
 
   // Prep pools, same bucketing as the Prep tab (equippable categories only).
   const pools = new Map<PrepPool, InventoryItem[]>();
@@ -136,7 +137,7 @@ export function CharacterReport({ character, derived, logs, onClose }: Props) {
             <p>{[character.species, character.class].filter(Boolean).join(' · ') || '—'}</p>
             <p>
               Level {derived.level} (Tier {tier}) · {formatGp(derived.gp)} GP ·{' '}
-              {derived.downtimeDays} downtime days · Attunement {attunedCount}/{ATTUNEMENT_CAP}
+              {derived.downtimeDays} downtime days · Attunement {attunedCount}/{attunementCap}
             </p>
             <p className="report-muted">Generated {new Date().toISOString().slice(0, 10)}</p>
           </div>

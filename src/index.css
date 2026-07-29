@@ -732,6 +732,18 @@ textarea:focus {
   background: transparent;
 }
 
+/* Editable attunement cap, inline in the Prep tab's tier/level summary line. */
+.attunement-cap-input {
+  width: 2.6em;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  padding: 0 0.2rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-inset);
+}
+
 /* Consumable quantity picker on a filled Prep slot (Prep.tsx). */
 .prep-qty-select {
   font-family: inherit;

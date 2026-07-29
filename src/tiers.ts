@@ -94,5 +94,14 @@ export function prepPoolOf(category: ItemCategory, rarity: Rarity | undefined): 
 /** A character can be attuned to at most this many magic items at once — shared
  * across every rarity (Uncommon+ and Common alike), owner rule 2026-07-19. Prep
  * disables the "Attuned" option in each item's attunement dropdown once the
- * character's current total (both magic item pools combined) hits this cap. */
-export const ATTUNEMENT_CAP = 3;
+ * character's current total (both magic item pools combined) hits this cap.
+ * This is the DEFAULT — see `Character.attunementCap` (types.ts) for the
+ * per-character override (added 2026-07-29: some subclasses/classes, e.g.
+ * Artificer, raise the normal 3-item limit). */
+export const DEFAULT_ATTUNEMENT_CAP = 3;
+
+/** The effective attunement cap for a character: their own override if set,
+ * else the default. */
+export function attunementCapFor(attunementCap: number | undefined): number {
+  return attunementCap ?? DEFAULT_ATTUNEMENT_CAP;
+}
