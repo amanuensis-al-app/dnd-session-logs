@@ -1163,6 +1163,32 @@ span.item-row-name > * {
   margin-top: 0.4rem;
 }
 
+/* Export PDF options modal (ExportPdfOptionsModal.tsx). */
+.modal-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0.6rem 0 1rem;
+}
+
+.modal-checkbox-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+input[type='checkbox'] {
+  width: 1rem;
+  height: 1rem;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  accent-color: var(--accent);
+}
+
 .modal-wide {
   max-width: 660px;
 }

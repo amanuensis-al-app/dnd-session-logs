@@ -16,6 +16,7 @@ import {
   tierForLevel,
   type PrepPool,
 } from '../tiers';
+import type { ExportPdfOptions } from './ExportPdfOptionsModal';
 
 interface Props {
   character: Character;
@@ -23,6 +24,9 @@ interface Props {
   /** This character's logs in replay (chronological) order — displayed reversed
    * (newest first), same as the Logs tab. */
   logs: LogEntry[];
+  /** Which sections to include — picked in ExportPdfOptionsModal right before this
+   * opens. Not persisted; every export starts back at that modal's defaults. */
+  options: ExportPdfOptions;
   onClose: () => void;
 }
 
@@ -45,7 +49,7 @@ const REPORT_POOL_ORDER: PrepPool[] = [
  * screen; the @media print rules in index.css strip everything else off the page,
  * and the browser's "Save as PDF" makes the file — no PDF library involved.
  */
-export function CharacterReport({ character, derived, logs, onClose }: Props) {
+export function CharacterReport({ character, derived, logs, options, onClose }: Props) {
   const tier = tierForLevel(derived.level);
   const attunementCap = attunementCapFor(character.attunementCap);
 
@@ -131,7 +135,9 @@ export function CharacterReport({ character, derived, logs, onClose }: Props) {
 
       <div className={`report-sheet${isLocalFile ? ' report-sheet-local-file' : ''}`}>
         <header className="report-header">
-          {character.icon && <img className="report-icon" src={character.icon} alt="" />}
+          {options.showIcon && character.icon && (
+            <img className="report-icon" src={character.icon} alt="" />
+          )}
           <div>
             <h1>{character.name}</h1>
             <p>{[character.species, character.class].filter(Boolean).join(' · ') || '—'}</p>
@@ -143,45 +149,48 @@ export function CharacterReport({ character, derived, logs, onClose }: Props) {
           </div>
         </header>
 
-        <section className="report-section">
-          <h2>Prepared</h2>
-          {REPORT_POOL_ORDER.map((pool) => {
-            const equipped = pools.get(pool)!;
-            const limit = prepLimit(tier, pool);
-            if (limit === 0 && equipped.length === 0) return null;
-            const used =
-              pool === 'consumable' || pool === 'equipment'
-                ? equipped.reduce((s, i) => s + preparedOf(i), 0)
-                : equipped.length;
-            return (
-              <div key={pool} className="report-pool">
-                <h3>
-                  {PREP_POOL_LABELS[pool]} ({used}
-                  {Number.isFinite(limit) ? `/${limit}` : ''})
-                </h3>
-                {equipped.length === 0 ? (
-                  <p className="report-muted">—</p>
-                ) : (
-                  <ul>
-                    {equipped.map((item) => (
-                      <li key={item.id}>
-                        {item.name}
-                        {(pool === 'consumable' || pool === 'equipment') && item.remaining > 1 && (
-                          <> ×{preparedOf(item)} (of {item.remaining})</>
-                        )}
-                        {item.rarity && <span className="report-muted"> — {item.rarity}</span>}
-                        {item.category === 'magic_item' && (
-                          <span className="report-muted"> · {attunementLabel(item)}</span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            );
-          })}
-        </section>
+        {options.showPrep && (
+          <section className="report-section">
+            <h2>Prepared</h2>
+            {REPORT_POOL_ORDER.map((pool) => {
+              const equipped = pools.get(pool)!;
+              const limit = prepLimit(tier, pool);
+              if (limit === 0 && equipped.length === 0) return null;
+              const used =
+                pool === 'consumable' || pool === 'equipment'
+                  ? equipped.reduce((s, i) => s + preparedOf(i), 0)
+                  : equipped.length;
+              return (
+                <div key={pool} className="report-pool">
+                  <h3>
+                    {PREP_POOL_LABELS[pool]} ({used}
+                    {Number.isFinite(limit) ? `/${limit}` : ''})
+                  </h3>
+                  {equipped.length === 0 ? (
+                    <p className="report-muted">—</p>
+                  ) : (
+                    <ul>
+                      {equipped.map((item) => (
+                        <li key={item.id}>
+                          {item.name}
+                          {(pool === 'consumable' || pool === 'equipment') && item.remaining > 1 && (
+                            <> ×{preparedOf(item)} (of {item.remaining})</>
+                          )}
+                          {item.rarity && <span className="report-muted"> — {item.rarity}</span>}
+                          {item.category === 'magic_item' && (
+                            <span className="report-muted"> · {attunementLabel(item)}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </section>
+        )}
 
+        {options.showLogs && (
         <section className="report-section">
           <h2>Logs ({logs.length})</h2>
           {displayLogs.map((log) => (
@@ -255,6 +264,7 @@ export function CharacterReport({ character, derived, logs, onClose }: Props) {
             </div>
           ))}
         </section>
+        )}
       </div>
     </div>,
     document.body

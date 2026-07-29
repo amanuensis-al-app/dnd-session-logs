@@ -11,6 +11,7 @@ import { CharacterAvatar } from './CharacterAvatar';
 import { GpAmount } from './GpAmount';
 import { AvatarEditor } from './AvatarEditor';
 import { CharacterReport } from './CharacterReport';
+import { ExportPdfOptionsModal, type ExportPdfOptions } from './ExportPdfOptionsModal';
 import type { ItemEditChanges } from './ItemEditModal';
 
 /** 'new' = adding, LogEntry = editing that log, prefill = new log parsed from
@@ -52,7 +53,8 @@ export function CharacterSheet({
   const [tab, setTab] = useState<'inventory' | 'prep' | 'logs'>('inventory');
   const [logDraft, setLogDraft] = useState<LogDraftState>(null);
   const [showTextImport, setShowTextImport] = useState(false);
-  const [showReport, setShowReport] = useState(false);
+  const [showReportOptions, setShowReportOptions] = useState(false);
+  const [reportOptions, setReportOptions] = useState<ExportPdfOptions | null>(null);
   const [editing, setEditing] = useState(false);
   const [editingIcon, setEditingIcon] = useState(false);
   const [name, setName] = useState(character.name);
@@ -314,8 +316,8 @@ export function CharacterSheet({
         <div className="sheet-toolbar-actions">
           <button
             className="btn"
-            title="Printable report of Prep, Inventory and all logs — save as PDF for your DM"
-            onClick={() => setShowReport(true)}
+            title="Printable report of Prep and all logs — save as PDF for your DM"
+            onClick={() => setShowReportOptions(true)}
           >
             Export PDF
           </button>
@@ -350,12 +352,24 @@ export function CharacterSheet({
         />
       )}
 
-      {showReport && (
+      {showReportOptions && (
+        <ExportPdfOptionsModal
+          character={character}
+          onCancel={() => setShowReportOptions(false)}
+          onConfirm={(options) => {
+            setReportOptions(options);
+            setShowReportOptions(false);
+          }}
+        />
+      )}
+
+      {reportOptions && (
         <CharacterReport
           character={character}
           derived={derived}
           logs={characterLogs}
-          onClose={() => setShowReport(false)}
+          options={reportOptions}
+          onClose={() => setReportOptions(null)}
         />
       )}
 
