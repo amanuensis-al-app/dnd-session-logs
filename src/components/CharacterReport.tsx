@@ -10,6 +10,7 @@ import { formatGp, groupedLosses } from '../derive';
 import { creationPickLabel } from '../catalog';
 import {
   attunementCapFor,
+  byRarityThenName,
   PREP_POOL_LABELS,
   prepLimit,
   prepPoolOf,
@@ -62,6 +63,7 @@ export function CharacterReport({ character, derived, logs, options, onClose }: 
     if (!pool || !character.itemMarks?.[item.id]) continue;
     pools.get(pool)!.push(item);
   }
+  for (const equipped of pools.values()) equipped.sort(byRarityThenName);
   const preparedOf = (item: InventoryItem) =>
     Math.min(character.equipQuantities?.[item.id] ?? item.remaining, item.remaining);
   const attunedCount = derived.inventory.filter(

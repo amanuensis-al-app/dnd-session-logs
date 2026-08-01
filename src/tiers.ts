@@ -1,4 +1,4 @@
-import type { ItemCategory, Rarity } from './types';
+import { RARITIES, type InventoryItem, type ItemCategory, type Rarity } from './types';
 
 export type Tier = 0 | 1 | 2 | 3 | 4;
 
@@ -105,3 +105,9 @@ export const DEFAULT_ATTUNEMENT_CAP = 3;
 export function attunementCapFor(attunementCap: number | undefined): number {
   return attunementCap ?? DEFAULT_ATTUNEMENT_CAP;
 }
+
+/** Rarest-first, then alphabetical — the Prep tab's ordering within a pool, also
+ * used by the PDF report's Prepared section so the two stay visually consistent. */
+const rarityRank = (r?: Rarity) => (r ? RARITIES.indexOf(r) : -1);
+export const byRarityThenName = (a: InventoryItem, b: InventoryItem) =>
+  rarityRank(b.rarity) - rarityRank(a.rarity) || a.name.localeCompare(b.name);

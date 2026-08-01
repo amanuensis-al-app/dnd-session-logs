@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import type { AttunementState, Character, DerivedStats, InventoryItem, Rarity } from '../types';
-import { EQUIPPABLE_CATEGORIES, RARITIES } from '../types';
+import type { AttunementState, Character, DerivedStats, InventoryItem } from '../types';
+import { EQUIPPABLE_CATEGORIES } from '../types';
 import {
   attunementCapFor,
+  byRarityThenName,
   DEFAULT_ATTUNEMENT_CAP,
   PREP_POOL_LABELS,
   PREP_POOL_ORDER,
@@ -28,10 +29,6 @@ interface Props {
    * default cap). */
   onSetAttunementCap: (cap: number | undefined) => void;
 }
-
-const rarityRank = (r?: Rarity) => (r ? RARITIES.indexOf(r) : -1);
-const byRarityThenName = (a: InventoryItem, b: InventoryItem) =>
-  rarityRank(b.rarity) - rarityRank(a.rarity) || a.name.localeCompare(b.name);
 
 const MAGIC_ITEM_POOLS: PrepPool[] = ['magicItemUncommonPlus', 'magicItemCommon'];
 
