@@ -4,6 +4,7 @@ import type {
   DerivedStats,
   GainedItem,
   ItemCategory,
+  ItemMark,
   LogEntry,
   LogType,
   LossReason,
@@ -304,6 +305,28 @@ function minorPropertySuffix(item: { minorProperty?: MinorProperty }): string {
   return item.minorProperty ? ` [${item.minorProperty}]` : '';
 }
 
+/**
+ * Same ordering as the Inventory/Prep tabs: equipped first, then rarest first,
+ * then name. `marks` is whichever character's itemMarks the items belong to.
+ */
+function sortInventoryLike<T extends { id: string; category: ItemCategory; name: string; rarity?: Rarity }>(
+  items: T[],
+  marks: Record<string, ItemMark> | undefined,
+): T[] {
+  const markRank = (item: T) => (EQUIPPABLE_CATEGORIES.includes(item.category) && marks?.[item.id] ? 0 : 1);
+  const rarityRank = (r?: Rarity) => (r ? RARITIES.indexOf(r) : -1);
+  return [...items].sort(
+    (a, b) => markRank(a) - markRank(b) || rarityRank(b.rarity) - rarityRank(a.rarity) || a.name.localeCompare(b.name),
+  );
+}
+
+function isMarkedEquipped(
+  item: { id: string; category: ItemCategory },
+  marks: Record<string, ItemMark> | undefined,
+): boolean {
+  return EQUIPPABLE_CATEGORIES.includes(item.category) && !!marks?.[item.id];
+}
+
 export function LogForm({
   character,
   derived,
@@ -502,8 +525,19 @@ export function LogForm({
       .filter((i) => i.remaining > 0);
   }, [derived, existingLog]);
   const ownedMagicItems = useMemo(
-    () => ownedItems.filter((i) => i.category === 'magic_item'),
-    [ownedItems],
+    () => sortInventoryLike(ownedItems.filter((i) => i.category === 'magic_item'), character.itemMarks),
+    [ownedItems, character.itemMarks],
+  );
+  // Split for the trade "Given away" picker so equipped items get their own,
+  // clearly-labeled section — trading one away unequips it, easy to do by
+  // accident when the flat list already sorts equipped items to the top.
+  const ownedMagicItemsUnequipped = useMemo(
+    () => ownedMagicItems.filter((i) => !isMarkedEquipped(i, character.itemMarks)),
+    [ownedMagicItems, character.itemMarks],
+  );
+  const ownedMagicItemsEquipped = useMemo(
+    () => ownedMagicItems.filter((i) => isMarkedEquipped(i, character.itemMarks)),
+    [ownedMagicItems, character.itemMarks],
   );
   const ownedEquipment = useMemo(
     () => ownedItems.filter((i) => i.category === 'equipment'),
@@ -517,17 +551,10 @@ export function LogForm({
   // Loss options sorted like the Inventory tab: equipped first, then rarest first,
   // then name. (ownedItems all have remaining > 0, so the Inventory sort's
   // negative-quantities-last rule doesn't apply here.)
-  const lossItemOptions = useMemo(() => {
-    const markRank = (item: { id: string; category: ItemCategory }) =>
-      EQUIPPABLE_CATEGORIES.includes(item.category) && character.itemMarks?.[item.id] ? 0 : 1;
-    const rarityRank = (r?: Rarity) => (r ? RARITIES.indexOf(r) : -1);
-    return [...ownedItems].sort(
-      (a, b) =>
-        markRank(a) - markRank(b) ||
-        rarityRank(b.rarity) - rarityRank(a.rarity) ||
-        a.name.localeCompare(b.name),
-    );
-  }, [ownedItems, character.itemMarks]);
+  const lossItemOptions = useMemo(
+    () => sortInventoryLike(ownedItems, character.itemMarks),
+    [ownedItems, character.itemMarks],
+  );
 
   // What each (stacked) item was last bought for, per unit — sell prices prefill at
   // half of this, falling back to half the catalog list price, else 0.
@@ -572,10 +599,19 @@ export function LogForm({
   );
   const tradePartnerMagicItems = useMemo(
     () =>
-      (tradePartnerDerived?.allItems ?? []).filter(
-        (i) => i.category === 'magic_item' && i.remaining > 0,
+      sortInventoryLike(
+        (tradePartnerDerived?.allItems ?? []).filter((i) => i.category === 'magic_item' && i.remaining > 0),
+        tradePartnerCharacter?.itemMarks,
       ),
-    [tradePartnerDerived],
+    [tradePartnerDerived, tradePartnerCharacter],
+  );
+  const tradePartnerMagicItemsUnequipped = useMemo(
+    () => tradePartnerMagicItems.filter((i) => !isMarkedEquipped(i, tradePartnerCharacter?.itemMarks)),
+    [tradePartnerMagicItems, tradePartnerCharacter],
+  );
+  const tradePartnerMagicItemsEquipped = useMemo(
+    () => tradePartnerMagicItems.filter((i) => isMarkedEquipped(i, tradePartnerCharacter?.itemMarks)),
+    [tradePartnerMagicItems, tradePartnerCharacter],
   );
   const tradePartnerItem = tradePartnerMagicItems.find((i) => i.id === tradePartnerItemId);
   // Only a NEW transaction log in 'character' mode gets the character/item pickers
@@ -1584,15 +1620,33 @@ export function LogForm({
               Magic item *
               <select value={tradeLostItemId} onChange={(e) => setTradeLostItemId(e.target.value)}>
                 <option value="">— pick from inventory —</option>
-                {ownedMagicItems.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.name}
-                    {i.rarity ? ` (${i.rarity})` : ''}
-                    {minorPropertySuffix(i)}
-                  </option>
-                ))}
+                {ownedMagicItemsUnequipped.length > 0 && (
+                  <optgroup label="Unequipped">
+                    {ownedMagicItemsUnequipped.map((i) => (
+                      <option key={i.id} value={i.id}>
+                        {i.name}
+                        {i.rarity ? ` (${i.rarity})` : ''}
+                        {minorPropertySuffix(i)}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {ownedMagicItemsEquipped.length > 0 && (
+                  <optgroup label="⚔️ Equipped">
+                    {ownedMagicItemsEquipped.map((i) => (
+                      <option key={i.id} value={i.id}>
+                        {i.name}
+                        {i.rarity ? ` (${i.rarity})` : ''}
+                        {minorPropertySuffix(i)}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </label>
+            {tradeLostItem && isMarkedEquipped(tradeLostItem, character.itemMarks) && (
+              <p className="warning">⚠ {tradeLostItem.name} is currently equipped — trading it away will unequip it.</p>
+            )}
             {tradeLostItem && (tradeLostItem.minorProperty || tradeLostItem.description) && (
               <p className="muted log-form-trade-note">
                 {tradeLostItem.minorProperty && <>Minor property: {tradeLostItem.minorProperty}</>}
@@ -1621,15 +1675,36 @@ export function LogForm({
                         ? '— pick from their inventory —'
                         : '— pick a character first —'}
                     </option>
-                    {tradePartnerMagicItems.map((i) => (
-                      <option key={i.id} value={i.id}>
-                        {i.name}
-                        {i.rarity ? ` (${i.rarity})` : ''}
-                        {minorPropertySuffix(i)}
-                      </option>
-                    ))}
+                    {tradePartnerMagicItemsUnequipped.length > 0 && (
+                      <optgroup label="Unequipped">
+                        {tradePartnerMagicItemsUnequipped.map((i) => (
+                          <option key={i.id} value={i.id}>
+                            {i.name}
+                            {i.rarity ? ` (${i.rarity})` : ''}
+                            {minorPropertySuffix(i)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {tradePartnerMagicItemsEquipped.length > 0 && (
+                      <optgroup label="⚔️ Equipped">
+                        {tradePartnerMagicItemsEquipped.map((i) => (
+                          <option key={i.id} value={i.id}>
+                            {i.name}
+                            {i.rarity ? ` (${i.rarity})` : ''}
+                            {minorPropertySuffix(i)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </label>
+                {tradePartnerItem && isMarkedEquipped(tradePartnerItem, tradePartnerCharacter?.itemMarks) && (
+                  <p className="warning">
+                    ⚠ {tradePartnerItem.name} is currently equipped on {tradePartnerCharacter?.name} — trading it away
+                    will unequip it.
+                  </p>
+                )}
                 {tradePartnerItem && (tradePartnerItem.minorProperty || tradePartnerItem.description) && (
                   <p className="muted log-form-trade-note">
                     {tradePartnerItem.minorProperty && (
