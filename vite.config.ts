@@ -29,6 +29,7 @@ export default defineConfig(({ mode }) => {
     // App version shown in the header — always matches package.json.
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version),
+      __PWA_ENABLED__: JSON.stringify(!standalone),
     },
     build: standalone
       ? {
@@ -45,6 +46,11 @@ export default defineConfig(({ mode }) => {
         : [
             VitePWA({
               registerType: 'autoUpdate',
+              // We register the service worker ourselves (src/registerServiceWorker.ts)
+              // with `updateViaCache: 'none'` so update checks always bypass the HTTP
+              // cache — GitLab/GitHub Pages give no control over Cache-Control, and a
+              // cached sw.js means the browser never notices a new deploy exists.
+              injectRegister: false,
               includeAssets: ['ama-icon.png', 'ama-icon-192.png', 'apple-touch-icon.png'],
               manifest: {
                 name: 'AMAnuensis — D&D Session Logs',
