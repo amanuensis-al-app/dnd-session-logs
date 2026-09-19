@@ -2252,6 +2252,16 @@ option:disabled {
   text-underline-offset: 3px;
 }
 
+/* The legend's sample ("Underlined name") is in much smaller text, so its
+   underline is scaled down to match: half-pixel thickness (renders as a true
+   hairline on high-DPI screens, 1 device pixel elsewhere), lighter, and closer
+   to the text. */
+.all-items-legend .all-items-equipped {
+  text-decoration-thickness: 0.5px;
+  text-decoration-color: rgba(201, 162, 77, 0.6);
+  text-underline-offset: 2px;
+}
+
 /* Inside a search highlight (a gold box) the gold underline would vanish, so the
    highlighted letters draw their own underline in the dark background color on
    top of it — same position and thickness, so it reads as one continuous line. */
