@@ -327,6 +327,16 @@ function isMarkedEquipped(
   return EQUIPPABLE_CATEGORIES.includes(item.category) && !!marks?.[item.id];
 }
 
+/** Item types a Session log's "Items lost / consumed" rows offer (owner spec
+ * 2026-09-20). Free Logs offer every category instead. */
+const SESSION_LOSS_CATEGORIES: ItemCategory[] = [
+  'magic_item',
+  'consumable',
+  'equipment',
+  'story_award',
+  'charm',
+];
+
 export function LogForm({
   character,
   derived,
@@ -543,11 +553,20 @@ export function LogForm({
     () => ownedItems.filter((i) => i.category === 'equipment'),
     [ownedItems],
   );
-  // Loss rows filter items by category — only offer categories the character owns.
+  // Loss rows filter items by category. A fixed list per log type (owner spec
+  // 2026-09-20), shown even when the character owns nothing of a category (its item
+  // dropdown then says so): Sessions can lose/consume magic items, consumables,
+  // equipment, story awards and charms; Free Logs can lose anything Items gained
+  // offers. New rows start on the first listed category the character owns.
   const lossCategories = useMemo(
-    () => ITEM_CATEGORIES.filter((c) => ownedItems.some((i) => i.category === c)),
-    [ownedItems],
+    () =>
+      type === 'session'
+        ? ITEM_CATEGORIES.filter((c) => SESSION_LOSS_CATEGORIES.includes(c))
+        : ITEM_CATEGORIES.filter((c) => c !== 'copied_spell'),
+    [type],
   );
+  const defaultLossCategory =
+    lossCategories.find((c) => ownedItems.some((i) => i.category === c)) ?? lossCategories[0];
   // Loss options sorted like the Inventory tab: equipped first, then rarest first,
   // then name. (ownedItems all have remaining > 0, so the Inventory sort's
   // negative-quantities-last rule doesn't apply here.)
@@ -674,27 +693,108 @@ export function LogForm({
       ) * 100,
     ) / 100;
 
+  /** Log types whose entries fit a Free Log field-for-field, so switching to Free
+   * Log carries them over instead of clearing the form (owner request 2026-09-20).
+   * Trade and Starting Log don't — their special fields (trade pair/partner,
+   * background/class packages) have nowhere to go in a Free Log. */
+  const CARRIES_INTO_FREE: LogType[] = ['session', 'catchup', 'copy_spell', 'purchase', 'sell'];
+
   function switchType(next: LogType) {
+    if (next === type) return;
+    const carryIntoFree = next === 'free' && CARRIES_INTO_FREE.includes(type);
+    // Session-only fields a Free Log has no place for — dropped on save as Free.
+    const droppedFields =
+      type === 'session'
+        ? [location.trim() && 'Location', dm.trim() && 'DM'].filter(Boolean)
+        : [];
     // While editing, switching type clears the item rows below — equivalent to
     // deleting this log and starting a new one of the new type (id/createdAt are
     // kept, so the log stays at the same date/order position). Worth a confirm:
-    // a misclick would otherwise silently discard the original log's items.
-    if (
-      editing &&
-      next !== type &&
-      !confirm(
-        `Change this log's type to "${LOG_TYPE_LABELS[next]}"? The item rows below will be cleared — saving is like deleting this log and creating a new ${LOG_TYPE_LABELS[next]} with the same date.`,
-      )
-    ) {
-      return;
+    // a misclick would otherwise silently discard the original log's items. A
+    // carry-over into Free Log loses nothing (bar Location/DM, named in the
+    // prompt), so it only asks when something would actually be dropped.
+    if (editing && (!carryIntoFree || droppedFields.length > 0)) {
+      const message = carryIntoFree
+        ? `Change this log's type to "Free Log"? Everything carries over except ${droppedFields.join(' and ')}, which a Free Log doesn't have.`
+        : `Change this log's type to "${LOG_TYPE_LABELS[next]}"? The item rows below will be cleared — saving is like deleting this log and creating a new ${LOG_TYPE_LABELS[next]} with the same date.`;
+      if (!confirm(message)) return;
     }
     setType(next);
+
+    if (carryIntoFree) {
+      // Turn the old type's effects into Free Log fields. Every Free Log field the
+      // old type didn't use is zeroed, so a stale value left in a hidden field
+      // (from an earlier type switch) can't leak into the saved log.
+      const zero = '0';
+      switch (type) {
+        case 'session':
+          setDowntimeSpent(zero);
+          setCopySpells([]);
+          break;
+        case 'catchup':
+          setGpGained(zero);
+          setGpLost(zero);
+          setDowntimeGained(zero);
+          setDowntimeSpent(String(catchupLevels * 10));
+          setLevelGained(String(catchupLevels));
+          setGains([]);
+          setLosses([]);
+          setCopySpells([]);
+          break;
+        case 'copy_spell':
+          // Rows, gp and downtime carry as-is (the Free Log has the same "Spells
+          // copied" section, just without the auto-fill).
+          setGpGained(zero);
+          setDowntimeGained(zero);
+          setLevelGained(zero);
+          setGains([]);
+          setLosses([]);
+          break;
+        case 'purchase':
+          setGpGained(zero);
+          setGpLost(String(purchaseTotal));
+          setDowntimeGained(zero);
+          setDowntimeSpent(zero);
+          setLevelGained(zero);
+          setLosses([]);
+          setCopySpells([]);
+          break;
+        case 'sell':
+          // Sell rows never show a reason (the Sell log always saves 'sold'), so
+          // stamp it on for the Free Log's visible reason picker.
+          // Sell rows also don't track a category (they're equipment-only), so set
+          // it from the picked item — the Free Log's loss rows filter by category,
+          // and a mismatch would hide the picked item behind a blank dropdown.
+          setLosses((prev) =>
+            prev.map((l) => ({
+              ...l,
+              reason: 'sold',
+              category: ownedItems.find((i) => i.id === l.itemId)?.category ?? l.category,
+            })),
+          );
+          setGpGained(String(sellTotal));
+          setGpLost(zero);
+          setDowntimeGained(zero);
+          setDowntimeSpent(zero);
+          setLevelGained(zero);
+          setGains([]);
+          setCopySpells([]);
+          break;
+      }
+      return;
+    }
+
     // Sensible defaults per type; the user can still adjust visible fields.
     if (next === 'session' || next === 'catchup') {
       setDowntimeGained('10');
       setLevelGained('1');
     } else if (next === 'free') {
+      // A fresh Free Log (from Trade / Starting Log): every number starts at 0,
+      // including ones hidden by the previous type that could hold stale values.
+      setGpGained('0');
+      setGpLost('0');
       setDowntimeGained('0');
+      setDowntimeSpent('0');
       setLevelGained('0');
     } else if (next === 'creation') {
       setGpGained('0');
@@ -2021,7 +2121,12 @@ export function LogForm({
                 disabled={lossCategories.length === 1}
                 title="Filter by item type"
               >
-                {lossCategories.map((c) => (
+                {/* An edited log's existing loss may be of a category this log type
+                   no longer lists — keep it selectable rather than blank. */}
+                {(lossCategories.includes(l.category)
+                  ? lossCategories
+                  : [...lossCategories, l.category]
+                ).map((c) => (
                   <option key={c} value={c}>
                     {CATEGORY_LABELS_SINGULAR[c]}
                   </option>
@@ -2032,7 +2137,11 @@ export function LogForm({
                 value={l.itemId}
                 onChange={(e) => updateLoss(l.key, { itemId: e.target.value })}
               >
-                <option value="">— pick from inventory —</option>
+                <option value="">
+                  {lossItemOptions.some((i) => i.category === l.category)
+                    ? '— pick from inventory —'
+                    : `— no ${CATEGORY_LABELS_SINGULAR[l.category].toLowerCase()} owned —`}
+                </option>
                 {lossItemOptions
                   .filter((i) => i.category === l.category)
                   .map((i) => (
@@ -2074,7 +2183,7 @@ export function LogForm({
             type="button"
             className="btn btn-ghost"
             onClick={() =>
-              setLosses((prev) => [...prev, emptyLoss('used', lossCategories[0] ?? 'consumable')])
+              setLosses((prev) => [...prev, emptyLoss('used', defaultLossCategory)])
             }
             disabled={ownedItems.length === 0}
           >
