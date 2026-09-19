@@ -769,7 +769,9 @@ textarea:focus {
 .rarity-uncommon { color: #7bbf7e; }
 .rarity-rare { color: #6fa8dc; }
 .rarity-very-rare { color: #b89aeb; }
-.rarity-legendary { color: #eec97b; }
+/* Orange, per the usual D&D convention — and the same value as the Tier 4
+   color (.character-card.tier-4), since the tier colors echo this scale. */
+.rarity-legendary { color: #e8975a; }
 .rarity-artifact { color: #e08a84; }
 
 /* Same ⚔️ glyph in both states — the glyph itself is faded (opacity) when unequipped
