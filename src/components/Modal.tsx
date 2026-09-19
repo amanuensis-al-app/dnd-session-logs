@@ -11,6 +11,8 @@ export function Modal({
   onClose,
   wide = false,
   decoration,
+  className,
+  closeButton = false,
   children,
 }: {
   title: string;
@@ -21,6 +23,11 @@ export function Modal({
    * header image (see index.css .modal-decoration). Public-asset path, joined with
    * BASE_URL the same way ama-icon.png is elsewhere. */
   decoration?: string;
+  /** Extra class on the dialog box, e.g. for a custom width. */
+  className?: string;
+  /** Show a ✕ close button in the top-right corner (for modals with no
+   * Cancel/Close button of their own). */
+  closeButton?: boolean;
   children: ReactNode;
 }) {
   useEffect(() => {
@@ -39,7 +46,7 @@ export function Modal({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className={wide ? 'modal card modal-wide' : 'modal card'}
+        className={`modal card${wide ? ' modal-wide' : ''}${className ? ` ${className}` : ''}`}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -53,6 +60,17 @@ export function Modal({
               alt=""
             />
           </div>
+        )}
+        {closeButton && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-small modal-close"
+            onClick={onClose}
+            aria-label="Close"
+            title="Close"
+          >
+            ✕
+          </button>
         )}
         <h2>{title}</h2>
         {children}

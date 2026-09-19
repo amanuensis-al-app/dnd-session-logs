@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { MarqueeText } from './MarqueeText';
+import { AllMagicItems } from './AllMagicItems';
 import type { Character, DerivedStats, LogEntry, LogType } from '../types';
 import { LOG_TYPE_LABELS, newId } from '../types';
 import { deriveCharacter, formatGp } from '../derive';
@@ -53,6 +54,7 @@ export function CharacterList({
   // chooser: an AMAnuensis backup (listed first) vs external sources (AL Log, any
   // CSV, the hidden log sheet). Each option's explanation is shown inline on its card.
   const [importChooserOpen, setImportChooserOpen] = useState(false);
+  const [showAllMagicItems, setShowAllMagicItems] = useState(false);
   // "Import Log Sheet" reads the owner's own private log-sheet format — not something
   // a random AMAnuensis user would have. Hidden behind typing R R Q anywhere on this
   // screen (not while typing in a field) so it doesn't confuse everyone else.
@@ -236,39 +238,60 @@ export function CharacterList({
           </p>
         </div>
       ) : (
-        <div className="character-grid">
-          {sorted.map((c) => {
-            const d = derivedByCharacter.get(c.id)!;
-            return (
-              <button
-                key={c.id}
-                className={`card character-card marquee-host tier-${tierForLevel(d.level)}`}
-                onClick={() => onOpen(c.id)}
-              >
-                <div className="character-card-header">
-                  <CharacterAvatar character={c} size={48} />
-                  <div className="character-card-identity">
-                    <MarqueeText className="character-card-name" text={c.name} />
-                    <MarqueeText
-                      className="character-card-sub muted"
-                      text={[c.species, c.class].filter(Boolean).join(' · ') || '—'}
-                    />
+        <>
+          <div className="character-grid">
+            {sorted.map((c) => {
+              const d = derivedByCharacter.get(c.id)!;
+              return (
+                <button
+                  key={c.id}
+                  className={`card character-card marquee-host tier-${tierForLevel(d.level)}`}
+                  onClick={() => onOpen(c.id)}
+                >
+                  <div className="character-card-header">
+                    <CharacterAvatar character={c} size={48} />
+                    <div className="character-card-identity">
+                      <MarqueeText className="character-card-name" text={c.name} />
+                      <MarqueeText
+                        className="character-card-sub muted"
+                        text={[c.species, c.class].filter(Boolean).join(' · ') || '—'}
+                      />
+                    </div>
                   </div>
-                </div>
-                <div className="character-card-stats">
-                  <span>
-                    <strong>Lv {d.level}</strong>
-                  </span>
-                  <span>
-                    <GpAmount value={d.gp} /> gp
-                  </span>
-                  <span>{d.downtimeDays} downtime</span>
-                  <span>{d.sessionsPlayed} sessions played</span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                  <div className="character-card-stats">
+                    <span>
+                      <strong>Lv {d.level}</strong>
+                    </span>
+                    <span>
+                      <GpAmount value={d.gp} /> gp
+                    </span>
+                    <span>{d.downtimeDays} downtime</span>
+                    <span>{d.sessionsPlayed} sessions played</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            className="btn all-magic-items-btn"
+            onClick={() => setShowAllMagicItems(true)}
+          >
+            Show All Magic Items
+          </button>
+        </>
+      )}
+
+      {showAllMagicItems && (
+        <AllMagicItems
+          characters={sorted}
+          derivedByCharacter={derivedByCharacter}
+          onOpenCharacter={(id) => {
+            setShowAllMagicItems(false);
+            onOpen(id);
+          }}
+          onClose={() => setShowAllMagicItems(false)}
+        />
       )}
 
       {importChooserOpen && (
