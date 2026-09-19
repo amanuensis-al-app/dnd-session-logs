@@ -1141,21 +1141,34 @@ span.item-row-name > * {
 }
 
 /* Ama-and-scribe illustration on the AI-chatbot screens (Modal's `decoration`
-   prop) — a "crown" perched above the modal: absolutely positioned against
-   .modal's `position: relative`, popping up out of the card rather than taking
-   up space inside it (the card has no overflow:hidden, so it's free to
-   protrude). Rounded corners + drop-shadow read it as a floating badge instead
-   of a stray white rectangle (the source art has a white background). */
-.modal-decoration {
+   prop) — a "crown" perched above the modal, popping up out of the card rather
+   than taking up space inside it (the card has no overflow:hidden).
+   Two layers, so the overlap never depends on the modal's height (owner
+   design, 2026-09-20):
+   - the ANCHOR's bottom edge sits exactly on the modal's top edge
+     (`bottom: 100%` — `top: -Npx` let the art drift when the modal resized,
+     and `bottom: 97.5%` made the overlap a fraction of the modal's height);
+   - the IMAGE inside hangs down into the card by a negative margin-bottom.
+     Percentage margins resolve against the containing block's WIDTH (= the
+     art's own width here), so the overlap scales with the art, not the modal.
+   Rounded corners + drop-shadow read it as a floating badge instead of a stray
+   white rectangle (the source art has a white background). */
+.modal-decoration-anchor {
   position: absolute;
-  top: -105px;
+  bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
   width: clamp(140px, 42vw, 210px);
+  pointer-events: none;
+}
+
+.modal-decoration {
+  display: block;
+  width: 100%;
   height: auto;
+  margin-bottom: -5%;
   border-radius: var(--radius);
   filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.55));
-  pointer-events: none;
 }
 
 .modal p {
@@ -1813,4 +1826,137 @@ textarea:focus {
 
 .warning {
   border-radius: var(--radius);
+}
+
+/* ---- AI-chatbot steps (ChatbotSteps.tsx) ----
+   Numbered seals per step; once the instructions are copied, step 1 dims and
+   steps 2–3 light up with a gold frame. Step 2 (paste into the chatbot and
+   SEND — the one people skip) also gets a "Next" tag and a slow glow until a
+   reply is pasted. */
+
+.text-import ol.chatbot-steps {
+  list-style: none;
+  counter-reset: chatbot-step;
+  padding-left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.text-import ol.chatbot-steps li.chatbot-step {
+  counter-increment: chatbot-step;
+  position: relative;
+  margin: 0;
+  padding: 0.55rem 0.8rem 0.55rem 3rem;
+  border: 1px solid transparent;
+  transition:
+    border-color 0.25s,
+    background-color 0.25s,
+    opacity 0.25s;
+}
+
+.chatbot-step::before {
+  content: counter(chatbot-step);
+  position: absolute;
+  left: 0.6rem;
+  top: 0.5rem;
+  width: 1.7rem;
+  height: 1.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--accent-strong);
+  /* Diamond seal (like Ama's gems) via clip-path, so the digit stays upright. */
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  background: rgba(201, 162, 77, 0.22);
+}
+
+.chatbot-step-done {
+  opacity: 0.6;
+}
+
+.chatbot-step-done::before {
+  content: '✓';
+}
+
+.chatbot-step-active {
+  border-color: var(--gold) !important;
+  background: rgba(201, 162, 77, 0.08);
+}
+
+.chatbot-step-active::before {
+  background: var(--gold);
+  color: #22142f;
+}
+
+.chatbot-step-next {
+  animation: chatbot-step-glow 1.8s ease-in-out infinite;
+}
+
+@keyframes chatbot-step-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(232, 200, 120, 0);
+  }
+  50% {
+    box-shadow: 0 0 12px 1px rgba(232, 200, 120, 0.45);
+  }
+}
+
+.chatbot-step-tag {
+  float: right;
+  margin: 0 0 0.3rem 0.6rem;
+  font-family: var(--font-display);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.5rem;
+  background: var(--danger);
+  color: #fff;
+}
+
+.chatbot-reply-active {
+  border-color: var(--gold);
+}
+
+.chatbot-paste-warning {
+  margin: 0.5rem 0 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chatbot-step-next {
+    animation: none;
+    box-shadow: 0 0 10px 1px rgba(232, 200, 120, 0.4);
+  }
+}
+
+.chatbot-step-action {
+  margin-top: 0.45rem;
+}
+
+/* Step 3's paste box glows along with step 3 until a reply is in. */
+.chatbot-reply-next {
+  animation: chatbot-step-glow 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chatbot-reply-next {
+    animation: none;
+  }
+}
+
+/* The chatbot screen's submit button once a real reply is pasted — the last
+   "next" in the guided flow (AddLogFromText / ImportConvertModal). */
+.btn-next {
+  animation: chatbot-step-glow 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-next {
+    animation: none;
+  }
 }

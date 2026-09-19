@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ChatbotSteps, isInstructionsPaste } from './ChatbotSteps';
 import type { ReactNode } from 'react';
 import { Modal } from './Modal';
 import type { AlImportResult } from '../importAlLog';
@@ -53,7 +54,6 @@ export function ImportConvertModal({
 }: Props) {
   const [step, setStep] = useState<'choose' | 'chatbot'>(quickImport ? 'choose' : 'chatbot');
   const [reply, setReply] = useState('');
-  const [copied, setCopied] = useState(false);
 
   function produce(convert: () => AlImportResult) {
     try {
@@ -63,16 +63,17 @@ export function ImportConvertModal({
     }
   }
 
-  async function copyInstructions() {
-    try {
-      await navigator.clipboard.writeText(buildPrompt());
-      setCopied(true);
-    } catch {
-      alert('Could not access the clipboard — please allow clipboard access and try again.');
-    }
+  // ← Back from the chatbot step also drops the pasted reply: going back usually
+  // means changing the source, which makes that reply stale. (ChatbotSteps unmounts
+  // too, so its copied/sent progress resets and the guide starts over at step 1.)
+  function backFromChatbot() {
+    setReply('');
+    setStep('choose');
   }
 
   if (step === 'chatbot') {
+    // A real chatbot reply is in (not empty, not the instructions pasted back).
+    const replyReady = reply.trim() !== '' && !isInstructionsPaste(reply, buildPrompt);
     return (
       <Modal title={chatbotTitle} wide decoration="decorations/ai-scribe.png" onClose={onClose}>
         <div className="text-import">
@@ -81,37 +82,16 @@ export function ImportConvertModal({
               <strong>{fileName}</strong>
             </p>
           )}
-          <ol>
-            <li>
-              Copy the prepared instructions (the whole CSV is included):
-              <div className="copy-instructions-row">
-                <span className="copy-arrow-hint" aria-hidden="true">
-                  →
-                </span>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-copy-prominent"
-                  onClick={copyInstructions}
-                >
-                  {copied ? '✓ Copied' : '📋 Copy Instructions'}
-                </button>
-              </div>
-            </li>
-            <li>
-              Paste them into any AI chatbot you already use — ChatGPT, Claude, Gemini… — and
-              send.
-            </li>
-            <li>Copy the AI chatbot's whole reply and paste it below.</li>
-          </ol>
-          <textarea
-            value={reply}
-            onChange={(e) => setReply(e.target.value)}
-            rows={7}
-            placeholder="Paste the AI chatbot's reply here…"
+          <ChatbotSteps
+            copyLabel="Copy the prepared instructions (the whole CSV is included):"
+            buildPrompt={buildPrompt}
+            reply={reply}
+            onReplyChange={setReply}
+            finishLabel="Preview Import"
           />
           <div className="modal-actions">
             {quickImport && (
-              <button type="button" className="btn btn-ghost" onClick={() => setStep('choose')}>
+              <button type="button" className="btn btn-ghost" onClick={backFromChatbot}>
                 ← Back
               </button>
             )}
@@ -120,11 +100,11 @@ export function ImportConvertModal({
             </button>
             <button
               type="button"
-              className="btn"
-              disabled={!reply.trim()}
+              className={`btn${replyReady ? ' btn-primary btn-next' : ''}`}
+              disabled={!replyReady}
               onClick={() => produce(() => parseReply(reply))}
             >
-              Preview Import
+              Preview Import →
             </button>
           </div>
           <p className="muted modal-hint">

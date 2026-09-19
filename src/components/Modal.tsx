@@ -46,11 +46,13 @@ export function Modal({
         onClick={(e) => e.stopPropagation()}
       >
         {decoration && (
-          <img
-            className="modal-decoration"
-            src={`${import.meta.env.BASE_URL}${decoration}`}
-            alt=""
-          />
+          <div className="modal-decoration-anchor">
+            <img
+              className="modal-decoration"
+              src={`${import.meta.env.BASE_URL}${decoration}`}
+              alt=""
+            />
+          </div>
         )}
         <h2>{title}</h2>
         {children}
