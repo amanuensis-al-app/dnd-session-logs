@@ -56,8 +56,10 @@ const QUANTITY_POOLS: PrepPool[] = ['consumable', 'equipment'];
  * character hits their attunement cap (3 by default, editable in this tab —
  * see `Character.attunementCap` in types.ts), so it can be seen but not
  * selected, same "cannot be selected" behavior for whichever item would push
- * the count over the cap. Items that don't require attunement show a static
- * "Attunement Not Required" tag instead of the dropdown.
+ * the count over the cap. Items that don't require attunement show no attunement
+ * control at all (a static "Attunement Not Required" tag was removed 2026-09-20 —
+ * owner: the missing dropdown already says it, and the tag read too much like
+ * "Not Attuned").
  *
  * Consumable and Equipment stacks prep by QUANTITY, not per stack: an equipped
  * stack shows a quantity picker (1…remaining; default the whole stack, stored
@@ -306,31 +308,26 @@ export function Prep({
                           {item.rarity}
                         </span>
                       )}
-                      {isMagicItemPool &&
-                        (requiresAttunement ? (
-                          <select
-                            className={`attune-select${attuned ? ' attune-attuned' : ''}`}
-                            value={attuned ? 'attuned' : ''}
-                            onChange={(e) =>
-                              onSetAttunement(
-                                item.id,
-                                (e.target.value || undefined) as AttunementState | undefined,
-                              )
-                            }
+                      {isMagicItemPool && requiresAttunement && (
+                        <select
+                          className={`attune-select${attuned ? ' attune-attuned' : ''}`}
+                          value={attuned ? 'attuned' : ''}
+                          onChange={(e) =>
+                            onSetAttunement(
+                              item.id,
+                              (e.target.value || undefined) as AttunementState | undefined,
+                            )
+                          }
+                        >
+                          <option value="">Not Attuned</option>
+                          <option
+                            value="attuned"
+                            disabled={!attuned && attunedCount >= attunementCap}
                           >
-                            <option value="">Not Attuned</option>
-                            <option
-                              value="attuned"
-                              disabled={!attuned && attunedCount >= attunementCap}
-                            >
-                              Attuned
-                            </option>
-                          </select>
-                        ) : (
-                          <span className="attune-select attune-not-required">
-                            Attunement Not Required
-                          </span>
-                        ))}
+                            Attuned
+                          </option>
+                        </select>
+                      )}
                       <button
                         className="equip-toggle mark-equipped"
                         title="Equipped — click to unequip"

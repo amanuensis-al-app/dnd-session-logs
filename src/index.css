@@ -757,12 +757,6 @@ textarea:focus {
   font-weight: 600;
 }
 
-.attune-select.attune-not-required {
-  color: var(--text-muted);
-  font-style: italic;
-  opacity: 0.7;
-}
-
 .rarity {
   font-size: 0.75rem;
   text-transform: capitalize;
@@ -1396,7 +1390,20 @@ input[type='checkbox'] {
 
 .report-toolbar-actions {
   display: flex;
+  align-items: center;
   gap: 0.4rem;
+}
+
+/* "Show Ama" watermark toggle beside Print (CharacterReport.tsx). */
+.report-toolbar-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+  margin-right: 0.4rem;
+  font-size: 0.9rem;
+  color: #f0ead9;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 /* Shown only when the report is opened from a file:// origin (the standalone
@@ -1430,6 +1437,14 @@ input[type='checkbox'] {
   border-radius: var(--radius);
   border: 1px solid #c9c2b8;
   flex-shrink: 0;
+}
+
+/* The theme colors every h1–h3 gold (made for the dark app); the report is dark
+   ink on white paper, so its headings go back to the report's own ink color. */
+.report-sheet h1,
+.report-sheet h2,
+.report-sheet h3 {
+  color: #1c1826;
 }
 
 .report-header h1 {
@@ -2080,4 +2095,18 @@ textarea:focus {
 .import-chooser-footnote {
   font-size: 0.82rem;
   margin: 0.5rem 0 0;
+}
+
+/* Native dropdown lists: without this, a select with a translucent or tinted
+   background (e.g. Prep's gold "Attuned" select) opens a white list whose options
+   inherit the select's gold text — unreadable. Options always get the theme's
+   dark panel and normal text, whatever the closed select looks like. */
+option {
+  background-color: var(--bg-raised);
+  color: var(--text);
+  font-weight: normal;
+}
+
+option:disabled {
+  color: var(--text-muted);
 }

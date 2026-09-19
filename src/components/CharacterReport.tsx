@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Character, DerivedStats, InventoryItem, LogEntry } from '../types';
 import {
@@ -102,6 +103,10 @@ export function CharacterReport({ character, derived, logs, options, onClose }: 
   // available mitigation short of asking the user to also uncheck "Headers and
   // footers" by hand, which the toolbar note below does too.
   const isLocalFile = window.location.protocol === 'file:';
+  // "Show Ama" toolbar checkbox: the big faint Ama watermark behind every printed
+  // page. On by default; unticking drops it to save ink on a physical print. Not
+  // persisted — every report opens with it on.
+  const [showWatermark, setShowWatermark] = useState(true);
 
   // Portaled to <body> so that in print the app root can be display:none'd and the
   // report printed as a normal static-flow document — absolutely-positioned overlays
@@ -118,6 +123,17 @@ export function CharacterReport({ character, derived, logs, options, onClose }: 
           </span>
         )}
         <span className="report-toolbar-actions">
+          <label
+            className="report-toolbar-check"
+            title="The faint Ama picture behind every printed page — untick to save ink when printing on paper"
+          >
+            <input
+              type="checkbox"
+              checked={showWatermark}
+              onChange={(e) => setShowWatermark(e.target.checked)}
+            />
+            Show Ama
+          </label>
           <button className="btn btn-primary" onClick={() => window.print()}>
             🖨️ Print / Save as PDF
           </button>
@@ -128,12 +144,14 @@ export function CharacterReport({ character, derived, logs, options, onClose }: 
       </div>
 
       {/* Print-only watermark: fixed-position elements repeat on every printed page. */}
-      <img
-        className="report-watermark"
-        src={`${import.meta.env.BASE_URL}ama-icon.png`}
-        alt=""
-        aria-hidden
-      />
+      {showWatermark && (
+        <img
+          className="report-watermark"
+          src={`${import.meta.env.BASE_URL}ama-icon.png`}
+          alt=""
+          aria-hidden
+        />
+      )}
 
       <div className={`report-sheet${isLocalFile ? ' report-sheet-local-file' : ''}`}>
         <header className="report-header">
