@@ -295,6 +295,11 @@ export interface Character {
    * (`DEFAULT_ATTUNEMENT_CAP` in tiers.ts) — some classes/subclasses (e.g.
    * Artificer) raise this. Absent = the default cap. */
   attunementCap?: number;
+  /** Extra Magic Items (Uncommon+) carry slots on top of the tier limit
+   * (`prepLimit` in tiers.ts) — some classes (e.g. Artificer) may bring more
+   * magic items to a table. Stored as a BONUS, not an absolute limit, so it
+   * carries over when the character changes tier. Absent = 0. */
+  magicItemCarryBonus?: number;
   createdAt: number;
 }
 

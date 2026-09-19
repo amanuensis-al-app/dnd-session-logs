@@ -1550,3 +1550,9 @@ input[type='checkbox'] {
 @page {
   margin: 14mm;
 }
+
+/* Prep: "· Tier 3 base 6, +2" note beside an edited magic item carry limit. */
+.prep-limit-bonus {
+  font-size: 0.75em;
+  font-weight: normal;
+}

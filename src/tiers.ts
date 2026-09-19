@@ -59,9 +59,12 @@ const TIER_LIMITS: Record<Tier, Record<PrepPool, number>> = {
   4: { magicItemUncommonPlus: 10, magicItemCommon: 5, consumable: 15, equipment: Infinity, blessing: 1, charm: 5, boon: 1 },
 };
 
-/** Slots allowed per pool. `Infinity` means the pool is uncapped (Equipment). */
-export function prepLimit(tier: Tier, pool: PrepPool): number {
-  return TIER_LIMITS[tier][pool];
+/** Slots allowed per pool. `Infinity` means the pool is uncapped (Equipment).
+ * `magicItemCarryBonus` (see `Character.magicItemCarryBonus`) raises the Magic
+ * Items (Uncommon+) pool only — never below 0. */
+export function prepLimit(tier: Tier, pool: PrepPool, magicItemCarryBonus = 0): number {
+  const base = TIER_LIMITS[tier][pool];
+  return pool === 'magicItemUncommonPlus' ? Math.max(0, base + magicItemCarryBonus) : base;
 }
 
 /**

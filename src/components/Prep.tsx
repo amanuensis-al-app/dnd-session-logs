@@ -28,6 +28,9 @@ interface Props {
   /** Sets this character's max-attuned-items override (undefined = back to the
    * default cap). */
   onSetAttunementCap: (cap: number | undefined) => void;
+  /** Sets this character's extra Magic Items (Uncommon+) carry slots on top of
+   * the tier limit (undefined = no bonus). */
+  onSetMagicItemCarryBonus: (bonus: number | undefined) => void;
 }
 
 const MAGIC_ITEM_POOLS: PrepPool[] = ['magicItemUncommonPlus', 'magicItemCommon'];
@@ -69,6 +72,7 @@ export function Prep({
   onSetAttunement,
   onSetEquipQuantity,
   onSetAttunementCap,
+  onSetMagicItemCarryBonus,
 }: Props) {
   const tier = tierForLevel(derived.level);
   const attunementCap = attunementCapFor(character.attunementCap);
@@ -180,10 +184,16 @@ export function Prep({
         />
       </p>
       {PREP_POOL_ORDER.map((pool) => {
-        const limit = prepLimit(tier, pool);
+        const baseLimit = prepLimit(tier, pool);
+        const limit = prepLimit(tier, pool, character.magicItemCarryBonus);
+        // Only the Uncommon+ magic item pool's limit is editable (class features
+        // like the Artificer's let a character carry more) — the input shows the
+        // effective limit but stores the difference from the tier's base, so the
+        // bonus survives a tier change.
+        const limitEditable = pool === 'magicItemUncommonPlus';
         const { equipped, available: allAvailable } = pools.get(pool)!;
         const available = activeQuery ? allAvailable.filter(matches) : allAvailable;
-        if (limit === 0 && equipped.length === 0) return null;
+        if (limit === 0 && equipped.length === 0 && !limitEditable) return null;
         // Equipment is uncapped: it can never go over, and there is always one
         // empty slot to add the next piece of gear.
         const unlimited = !Number.isFinite(limit);
@@ -214,12 +224,46 @@ export function Prep({
               {PREP_POOL_LABELS[pool]}{' '}
               <span className="muted">
                 ({used}
-                {unlimited ? '' : `/${limit}`})
+                {limitEditable ? (
+                  <>
+                    /
+                    <input
+                      type="number"
+                      min={0}
+                      className="attunement-cap-input"
+                      value={limit}
+                      title={`Max magic items carried — Tier ${tier} allows ${baseLimit}; raise this for class features that let you carry more (e.g. Artificer)`}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === '') {
+                          onSetMagicItemCarryBonus(undefined);
+                          return;
+                        }
+                        const v = Math.max(0, Math.round(Number(raw)));
+                        if (!Number.isFinite(v)) return;
+                        onSetMagicItemCarryBonus(v === baseLimit ? undefined : v - baseLimit);
+                      }}
+                    />
+                  </>
+                ) : unlimited ? (
+                  ''
+                ) : (
+                  `/${limit}`
+                )}
+                )
+                {limitEditable && limit !== baseLimit && (
+                  <span className="prep-limit-bonus">
+                    {' '}
+                    · Tier {tier} base {baseLimit}, {limit > baseLimit ? '+' : '−'}
+                    {Math.abs(limit - baseLimit)}
+                  </span>
+                )}
               </span>
             </h2>
             {overBy > 0 && (
               <div className="warning prep-over-limit">
-                ⚠ {used} equipped but Tier {tier} only allows {limit} — unequip {overBy} to
+                ⚠ {used} equipped but {limit === baseLimit ? `Tier ${tier}` : 'this character'} only
+                allows {limit} — unequip {overBy} to
                 fix.
               </div>
             )}

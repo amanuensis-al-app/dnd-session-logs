@@ -107,6 +107,12 @@ export function CharacterSheet({
     onSaveCharacter({ ...character, attunementCap: cap });
   }
 
+  /** Sets (or clears, if undefined) this character's extra Magic Items
+   * (Uncommon+) carry slots — Prep's pool-limit input. */
+  function setMagicItemCarryBonus(bonus: number | undefined) {
+    onSaveCharacter({ ...character, magicItemCarryBonus: bonus });
+  }
+
   /** Saves both halves of a Trade made with another of the user's own characters
    * (LogForm's `onSaveLinkedTrade`) — two independent log upserts, one per
    * character. No transactional guarantee beyond that, same as everywhere else in
@@ -443,6 +449,7 @@ export function CharacterSheet({
                 onSetAttunement={setItemAttunement}
                 onSetEquipQuantity={setEquipQuantity}
                 onSetAttunementCap={setAttunementCap}
+                onSetMagicItemCarryBonus={setMagicItemCarryBonus}
               />
             )}
             {/* Always mounted (hidden off the Logs tab) so an in-place edit form's

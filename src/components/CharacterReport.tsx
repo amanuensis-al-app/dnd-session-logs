@@ -156,7 +156,7 @@ export function CharacterReport({ character, derived, logs, options, onClose }: 
             <h2>Prepared</h2>
             {REPORT_POOL_ORDER.map((pool) => {
               const equipped = pools.get(pool)!;
-              const limit = prepLimit(tier, pool);
+              const limit = prepLimit(tier, pool, character.magicItemCarryBonus);
               if (limit === 0 && equipped.length === 0) return null;
               const used =
                 pool === 'consumable' || pool === 'equipment'
