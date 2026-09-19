@@ -45,7 +45,7 @@ Notes:
 
 ## Importing from adventurersleaguelog.com
 
-**Import AL Log** on the character screen reads a CSV export from
+**Import Character(s) → Adventurers League Log** on the Characters screen reads a CSV export from
 [adventurersleaguelog.com](https://www.adventurersleaguelog.com) (one character per file) and
 creates the character with all their logs. You get a preview — derived level/GP/downtime and
 any caveats — before anything is saved.

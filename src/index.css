@@ -236,28 +236,6 @@ h2 {
   flex-wrap: wrap;
 }
 
-.import-btn-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  margin-right: 0.6rem;
-}
-
-.import-info-button {
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--bg-inset);
-  font-weight: 700;
-  font-size: 0.7rem;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
 .import-warnings {
   max-height: 14rem;
   overflow-y: auto;
@@ -1374,8 +1352,8 @@ input[type='checkbox'] {
   .stat-value {
     font-size: 1.15rem;
   }
-  /* Characters screen's heading row (Import AL Log / Import CSV Log / Import
-     Backup / + New Character): without wrapping, these overflow past the
+  /* Characters screen's heading row (Import Character(s) / + New Character):
+     without wrapping, these overflow past the
      viewport edge on narrow screens and the last button(s) become unpressable. */
   .page-heading {
     flex-wrap: wrap;
@@ -1959,4 +1937,147 @@ textarea:focus {
   .btn-next {
     animation: none;
   }
+}
+
+/* ---- One-line text with a hover marquee (MarqueeText.tsx) ----
+   At rest: ellipsis. Hovering the nearest .marquee-host (a character card) swaps
+   in a looping track of two copies scrolling by one copy's width (-50% of the
+   track), so it wraps around seamlessly. The rest copy stays laid out (only
+   visibility flips) so the box never changes size mid-hover. */
+
+.marquee {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.marquee-rest {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.marquee-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: none;
+}
+
+.marquee-copy {
+  padding-right: 2.5em;
+}
+
+.marquee-host:hover .marquee-overflowing .marquee-rest {
+  visibility: hidden;
+}
+
+/* Fade the edges while scrolling so letters slide in/out instead of being
+   chopped off at the box edge. */
+.marquee-host:hover .marquee-overflowing {
+  mask-image: linear-gradient(90deg, transparent, #000 0.8em, #000 calc(100% - 0.8em), transparent);
+}
+
+.marquee-host:hover .marquee-overflowing .marquee-track {
+  display: inline-flex;
+  animation: marquee-scroll var(--marquee-duration, 6s) linear 0.35s infinite;
+}
+
+@keyframes marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-host:hover .marquee-overflowing .marquee-rest {
+    visibility: visible;
+  }
+  .marquee-host:hover .marquee-overflowing .marquee-track {
+    display: none;
+  }
+  .marquee-host:hover .marquee-overflowing {
+    mask-image: none;
+  }
+}
+
+/* Lets the card's name/class column shrink below its text width (flex items
+   default to min-width: auto), so MarqueeText can truncate. */
+.character-card-identity {
+  min-width: 0;
+  flex: 1;
+}
+
+/* ---- Import Character(s) chooser (CharacterList.tsx) ----
+   Two groups — external sources vs an AMAnuensis backup — of option cards, each
+   a big button carrying its own explanation. */
+
+.import-chooser-heading {
+  font-size: 0.8rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 1.1rem 0 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* Gold rule trailing the heading. */
+.import-chooser-heading::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--gold-dim);
+}
+
+.import-chooser-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.6rem;
+}
+
+.import-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-inset);
+  border: 1px solid var(--gold-dim);
+  border-radius: var(--radius);
+  padding: 0.75rem 0.9rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
+}
+
+.import-option:hover,
+.import-option:focus-visible {
+  border-color: var(--gold);
+  background: rgba(201, 162, 77, 0.08);
+}
+
+.import-option-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--accent-strong);
+}
+
+.import-option-desc {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.import-chooser-footnote {
+  font-size: 0.82rem;
+  margin: 0.5rem 0 0;
 }

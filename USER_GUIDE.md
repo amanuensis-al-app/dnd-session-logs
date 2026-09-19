@@ -11,18 +11,22 @@ That makes backups important; see the last section.
 ## 1. Already playing? Import your history
 
 Most players already have some history somewhere — you probably don't need to start
-from zero. Two shortcuts on the Characters screen:
+from zero. Press **Import Character(s)** on the Characters screen and pick where
+your history lives:
 
-- **Import AL Log** — you've been logging games on
+- **Adventurers League Log** — you've been logging games on
   [adventurersleaguelog.com](https://www.adventurersleaguelog.com). Pick your
   exported CSV (one file per character).
-- **Import CSV Log** — your history lives somewhere else entirely: a personal
+- **Any Other CSV Log** — your history lives somewhere else entirely: a personal
   spreadsheet, any other CSV export the app has never seen before.
 
-Both work the same way: pick your file, and AMAnuensis converts it into a brand-new
-character with all its logs. Import AL Log knows the site's format well enough to
-offer an instant offline conversion (**✨ Quick Import**), but for anything trickier —
-or for Import CSV Log, which has to work out formats it's never seen — the more
+(The same button also takes an **AMAnuensis Backup File** — say, a character a
+friend sent you — and adds it as a new character.)
+
+Both log imports work the same way: pick your file, and AMAnuensis converts it into a
+brand-new character with all its logs. The AL Log option knows the site's format well
+enough to offer an instant offline conversion (**✨ Quick Import**), but for anything
+trickier — or for Any Other CSV Log, which has to work out formats it's never seen — the more
 accurate path is **🤖 Use an AI Chatbot**: click it, copy the prepared instructions
 (your file's contents are included), paste them into any AI chatbot you already use
 (ChatGPT, Claude, Gemini…), and paste its reply back in.

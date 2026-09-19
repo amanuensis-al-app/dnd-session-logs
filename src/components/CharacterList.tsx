@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { MarqueeText } from './MarqueeText';
 import type { Character, DerivedStats, LogEntry, LogType } from '../types';
 import { LOG_TYPE_LABELS, newId } from '../types';
 import { deriveCharacter, formatGp } from '../derive';
@@ -47,11 +48,11 @@ export function CharacterList({
   const importInputRef = useRef<HTMLInputElement>(null);
   const importKindRef = useRef<'al' | 'sheet' | 'csv'>('al');
   const backupImportInputRef = useRef<HTMLInputElement>(null);
-  // Which import button's "what does this do?" explainer is open — shown on click of
-  // the small (?) button next to each import button, since a hover-only title tooltip
-  // turned out to be too easy to miss (owner-reported: people were hitting the file
-  // picker with no idea what they were about to import).
-  const [importInfo, setImportInfo] = useState<'al' | 'csv' | 'sheet' | 'backup' | null>(null);
+  // The one "Import Character(s)" button (2026-09-20, replaced separate Import AL
+  // Log / Import CSV Log / Import Backup buttons + their "?" explainers) opens this
+  // chooser: an AMAnuensis backup (listed first) vs external sources (AL Log, any
+  // CSV, the hidden log sheet). Each option's explanation is shown inline on its card.
+  const [importChooserOpen, setImportChooserOpen] = useState(false);
   // "Import Log Sheet" reads the owner's own private log-sheet format — not something
   // a random AMAnuensis user would have. Hidden behind typing R R Q anywhere on this
   // screen (not while typing in a field) so it doesn't confuse everyone else.
@@ -118,6 +119,17 @@ export function CharacterList({
     }
   }
 
+  /** A chooser option was picked: close the chooser and open the matching file picker. */
+  function pickImport(kind: 'al' | 'csv' | 'sheet' | 'backup') {
+    setImportChooserOpen(false);
+    if (kind === 'backup') {
+      backupImportInputRef.current?.click();
+    } else {
+      importKindRef.current = kind;
+      importInputRef.current?.click();
+    }
+  }
+
   const preview =
     importPreview && deriveCharacter(importPreview.result.character, importPreview.result.logs);
   const typeCounts =
@@ -142,89 +154,13 @@ export function CharacterList({
       <div className="page-heading">
         <h1>Characters</h1>
         <div className="page-heading-actions">
-          <span className="import-btn-group">
-            <button
-              className="btn btn-ghost"
-              onClick={() => {
-                importKindRef.current = 'al';
-                importInputRef.current?.click();
-              }}
-              title="Import a character from an adventurersleaguelog.com CSV export"
-            >
-              Import AL Log
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost btn-small import-info-button"
-              onClick={() => setImportInfo('al')}
-              title="What does this do?"
-              aria-label="What does Import AL Log do?"
-            >
-              ?
-            </button>
-          </span>
-          <span className="import-btn-group">
-            <button
-              className="btn btn-ghost"
-              onClick={() => {
-                importKindRef.current = 'csv';
-                importInputRef.current?.click();
-              }}
-              title="Import a character from any CSV play log — an AI chatbot works out the format and converts it"
-            >
-              Import CSV Log
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost btn-small import-info-button"
-              onClick={() => setImportInfo('csv')}
-              title="What does this do?"
-              aria-label="What does Import CSV Log do?"
-            >
-              ?
-            </button>
-          </span>
-          {logSheetUnlocked && (
-            <span className="import-btn-group">
-              <button
-                className="btn btn-ghost"
-                onClick={() => {
-                  importKindRef.current = 'sheet';
-                  importInputRef.current?.click();
-                }}
-                title="Import a character from a personal log-sheet CSV (Adventure/Trade/Purchase columns)"
-              >
-                Import Log Sheet
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-small import-info-button"
-                onClick={() => setImportInfo('sheet')}
-                title="What does this do?"
-                aria-label="What does Import Log Sheet do?"
-              >
-                ?
-              </button>
-            </span>
-          )}
-          <span className="import-btn-group">
-            <button
-              className="btn btn-ghost"
-              onClick={() => backupImportInputRef.current?.click()}
-              title="Import character(s) from an AMAnuensis backup file (Backup All or Backup Character) — always added as new, never overwrites anything"
-            >
-              Import Backup
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost btn-small import-info-button"
-              onClick={() => setImportInfo('backup')}
-              title="What does this do?"
-              aria-label="What does Import Backup do?"
-            >
-              ?
-            </button>
-          </span>
+          <button
+            className="btn btn-ghost"
+            onClick={() => setImportChooserOpen(true)}
+            title="Bring in a character from adventurersleaguelog.com, any CSV log, or an AMAnuensis backup file"
+          >
+            Import Character(s)
+          </button>
           <button className="btn btn-primary" onClick={() => setCreating((v) => !v)}>
             {creating ? 'Cancel' : '+ New Character'}
           </button>
@@ -306,16 +242,17 @@ export function CharacterList({
             return (
               <button
                 key={c.id}
-                className={`card character-card tier-${tierForLevel(d.level)}`}
+                className={`card character-card marquee-host tier-${tierForLevel(d.level)}`}
                 onClick={() => onOpen(c.id)}
               >
                 <div className="character-card-header">
                   <CharacterAvatar character={c} size={48} />
-                  <div>
-                    <div className="character-card-name">{c.name}</div>
-                    <div className="character-card-sub muted">
-                      {[c.species, c.class].filter(Boolean).join(' · ') || '—'}
-                    </div>
+                  <div className="character-card-identity">
+                    <MarqueeText className="character-card-name" text={c.name} />
+                    <MarqueeText
+                      className="character-card-sub muted"
+                      text={[c.species, c.class].filter(Boolean).join(' · ') || '—'}
+                    />
                   </div>
                 </div>
                 <div className="character-card-stats">
@@ -334,107 +271,71 @@ export function CharacterList({
         </div>
       )}
 
-      {importInfo && (
-        <Modal
-          title={
-            importInfo === 'al'
-              ? 'Import AL Log'
-              : importInfo === 'csv'
-                ? 'Import CSV Log'
-                : importInfo === 'sheet'
-                  ? 'Import Log Sheet'
-                  : 'Import Backup'
-          }
-          onClose={() => setImportInfo(null)}
-        >
-          {importInfo === 'al' && (
-            <>
-              <p>
-                Reads a CSV export from <strong>adventurersleaguelog.com</strong> and creates a{' '}
-                <strong>brand-new character</strong> from it — your existing characters are never
-                touched.
-              </p>
-              <p className="muted">
-                After you pick the file, you'll choose between a fast offline conversion or a more
-                careful AI-chatbot pass, then review everything in a preview before it's actually
-                added.
-              </p>
-              <p className="warning">
-                ⚠ For a very long log history, a free AI chatbot will probably hit its length limit
-                and refuse (or fail) the conversion — try <strong>Quick Import</strong> instead, or
-                use a <strong>paid or larger-context AI chatbot</strong> for a big file.
-              </p>
-            </>
-          )}
-          {importInfo === 'csv' && (
-            <>
-              <p>
-                Reads <strong>any</strong> CSV or spreadsheet play log — even one in a format this
-                app doesn't specifically recognise — and creates a{' '}
-                <strong>brand-new character</strong> from it. Your existing characters are never
-                touched.
-              </p>
-              <p className="muted">
-                There's no offline conversion for this one — an AI chatbot reverse-engineers the
-                layout. After you pick the file you'll copy instructions to an AI chatbot of your
-                choice, paste its reply back in, and review a preview before anything is added.
-              </p>
-              <p className="warning">
-                ⚠ For a very long log history, a free AI chatbot will probably hit its length limit
-                and refuse (or fail) the conversion — a <strong>paid or larger-context AI chatbot</strong>{' '}
-                will handle a big file more reliably.
-              </p>
-            </>
-          )}
-          {importInfo === 'sheet' && (
-            <>
-              <p>
-                Reads the owner's own personal Google-Sheets log format (Adventure / Trade /
-                Purchase columns) and creates a <strong>brand-new character</strong> from it. Your
-                existing characters are never touched.
-              </p>
-              <p className="muted">
-                After you pick the file, you'll choose between a fast offline conversion or a more
-                careful AI-chatbot pass, then review everything in a preview before it's actually
-                added.
-              </p>
-            </>
-          )}
-          {importInfo === 'backup' && (
-            <>
-              <p>
-                Reads an AMAnuensis backup file — one made with <strong>Backup All</strong> or{' '}
-                <strong>Backup Character</strong>, yours or someone else's — and adds its
-                character(s) as <strong>brand-new characters</strong>.
-              </p>
-              <p className="muted">
-                Always adds new copies; it never overwrites or merges into anything you already
-                have, even if you import the same file twice. (To update a character from its own
-                backup instead, use that character's <strong>Restore Character</strong> button on
-                its own page.)
-              </p>
-            </>
-          )}
-          <div className="modal-actions">
-            <button className="btn btn-ghost" onClick={() => setImportInfo(null)}>
-              Close
-            </button>
+      {importChooserOpen && (
+        <Modal title="Import Character(s)" wide onClose={() => setImportChooserOpen(false)}>
+          <p className="muted">
+            Imported characters are always added as <strong>new</strong> — nothing you already
+            have is changed. You'll see a preview before anything is added.
+          </p>
+
+          <h3 className="import-chooser-heading">From AMAnuensis</h3>
+          <div className="import-chooser-options">
             <button
-              className="btn btn-primary"
-              onClick={() => {
-                const kind = importInfo;
-                setImportInfo(null);
-                if (kind === 'backup') {
-                  backupImportInputRef.current?.click();
-                } else {
-                  importKindRef.current = kind;
-                  importInputRef.current?.click();
-                }
-              }}
+              type="button"
+              className="import-option"
+              onClick={() => pickImport('backup')}
             >
-              Choose File…
+              <span className="import-option-title">AMAnuensis Backup File</span>
+              <span className="import-option-desc">
+                A file made with <strong>Backup All</strong> or <strong>Backup Character</strong> —
+                yours or a friend's. Adds copies of its character(s); to update an existing
+                character from its own backup, use <strong>Restore Character</strong> on its page
+                instead.
+              </span>
             </button>
           </div>
+
+          <h3 className="import-chooser-heading">From outside AMAnuensis</h3>
+          <div className="import-chooser-options">
+            <button
+              type="button"
+              className="import-option"
+              onClick={() => pickImport('al')}
+            >
+              <span className="import-option-title">Adventurers League Log</span>
+              <span className="import-option-desc">
+                A CSV export from <strong>adventurersleaguelog.com</strong>. Convert it instantly
+                offline, or more carefully with an AI chatbot.
+              </span>
+            </button>
+            <button
+              type="button"
+              className="import-option"
+              onClick={() => pickImport('csv')}
+            >
+              <span className="import-option-title">Any Other CSV Log</span>
+              <span className="import-option-desc">
+                Your own spreadsheet or any other CSV play log, in any layout. An AI chatbot works
+                out the format and converts it — <em>best effort</em>, so check the preview.
+              </span>
+            </button>
+            {logSheetUnlocked && (
+              <button
+                type="button"
+                className="import-option"
+                onClick={() => pickImport('sheet')}
+              >
+                <span className="import-option-title">Personal Log Sheet</span>
+                <span className="import-option-desc">
+                  The owner's own Google-Sheets log format (Adventure / Trade / Purchase columns).
+                </span>
+              </button>
+            )}
+          </div>
+          <p className="muted import-chooser-footnote">
+            ⚠ A very long log history may be too big for a free AI chatbot — use Quick Import (AL
+            Log only) or a paid, larger-context chatbot for big files.
+          </p>
         </Modal>
       )}
 

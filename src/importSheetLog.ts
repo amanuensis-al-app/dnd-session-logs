@@ -130,7 +130,7 @@ export function characterNameFromFile(fileName: string | undefined, warnings: st
 export function importSheetLog(csvText: string, fileName?: string): AlImportResult {
   const rows = parseCsv(csvText);
   if (rows[0]?.[0]?.trim() === 'name') {
-    throw new Error('This looks like an Adventurers League Log export — use "Import AL Log" instead.');
+    throw new Error('This looks like an Adventurers League Log export — use Import Character(s) → "Adventurers League Log" instead.');
   }
   const header = rows[0] ?? [];
   const col = (name: string) => header.findIndex((h) => h.trim().toLowerCase() === name);
