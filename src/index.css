@@ -2449,13 +2449,25 @@ option:disabled {
 .scroll-fade {
   --scroll-fade-top: 0px;
   --scroll-fade-bottom: 0px;
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0,
-    #000 var(--scroll-fade-top),
-    #000 calc(100% - var(--scroll-fade-bottom)),
-    transparent 100%
-  );
+  /* Two mask layers: the fading gradient over the content area, and a solid
+     strip over the scrollbar (--scrollbar-width, set by the hook) so the
+     scrollbar itself is never faded. */
+  mask-image:
+    linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 var(--scroll-fade-top),
+      #000 calc(100% - var(--scroll-fade-bottom)),
+      transparent 100%
+    ),
+    linear-gradient(#000, #000);
+  mask-size:
+    calc(100% - var(--scrollbar-width, 0px)) 100%,
+    var(--scrollbar-width, 0px) 100%;
+  mask-position:
+    left top,
+    right top;
+  mask-repeat: no-repeat;
   transition:
     --scroll-fade-top 0.2s ease,
     --scroll-fade-bottom 0.2s ease;
