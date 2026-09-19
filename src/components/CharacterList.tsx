@@ -198,7 +198,7 @@ export function CharacterList({
                 autoFocus
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Thistle Brambleburr"
+                placeholder="e.g. Benedict Taradiddle"
                 required
               />
             </label>

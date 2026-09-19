@@ -917,6 +917,9 @@ textarea:focus {
 
 .log-entry-editing .log-form {
   border: none;
+  /* No inner gold hairline either (the theme's .card outline) — with this
+     form's near-zero padding it would cut straight through the fields. */
+  outline: none;
   background: none;
   padding: 0.8rem 0 0;
   margin: 0;
