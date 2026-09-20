@@ -111,6 +111,15 @@ export const LOG_TYPE_LABELS: Record<LogType, string> = {
   dm_session: 'DM Session',
 };
 
+/** Shorter labels for the log form's type tabs only — nine tabs have to fit one
+ * row. Everywhere a log is DESCRIBED (history badges, confirm dialogs, the PDF
+ * report) keeps the full LOG_TYPE_LABELS wording. */
+export const LOG_TYPE_TAB_LABELS: Record<LogType, string> = {
+  ...LOG_TYPE_LABELS,
+  creation: 'Starting',
+  free: 'Free',
+};
+
 /**
  * Categories with no per-instance identity: any two with the same name and rarity are
  * the same item, so they stack. They carry no description, and their GainedItem id is

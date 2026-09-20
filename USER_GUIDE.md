@@ -49,12 +49,12 @@ A brand-new character starts at **Level 1** with **0 GP** and an empty inventory
 everything else comes from logs you add. So the very next thing you do is add your
 first log.
 
-## 3. Starting fresh: your first log (Starting Log)
+## 3. Starting fresh: your first log (Starting)
 
 *(Already imported a character in Step 1? Skip to Step 4.)*
 
-Open the character and click **+ Add Log**, then pick the **Starting Log** tab. This
-is where you record how the character began:
+Open the character and click **+ Add Log**. A character with no logs yet opens on
+the **Starting** tab already — that's where you record how the character began:
 
 - **Starting level** — most tables start at 1, but pick higher if yours allows
   starting further along (some AL rules grant extra downtime or even a free magic

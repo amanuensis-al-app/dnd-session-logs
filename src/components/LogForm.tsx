@@ -18,6 +18,7 @@ import {
   ITEM_CATEGORIES,
   LOG_TYPES,
   LOG_TYPE_LABELS,
+  LOG_TYPE_TAB_LABELS,
   LOSS_REASON_LABELS,
   MINOR_PROPERTIES,
   RARITIES,
@@ -363,7 +364,11 @@ export function LogForm({
   // keeps checking existingLog.
   const initial = existingLog ?? prefill;
   const [minimized, setMinimized] = useState(false);
-  const [type, setType] = useState<LogType>(initial?.type ?? 'session');
+  // A brand-new character's first log is almost always their Starting Log, so the
+  // form opens on that tab until they have any log at all; after that, Session.
+  const [type, setType] = useState<LogType>(
+    initial?.type ?? (characterLogs.length === 0 ? 'creation' : 'session'),
+  );
   const [date, setDate] = useState(() => initial?.date ?? new Date().toISOString().slice(0, 10));
   const [time, setTime] = useState(initial?.time ?? '');
   const [location, setLocation] = useState(initial?.location ?? '');
@@ -1320,7 +1325,7 @@ export function LogForm({
             className={`tab tab-${t.replace('_', '-')}${type === t ? ' active' : ''}`}
             onClick={() => switchType(t)}
           >
-            {LOG_TYPE_LABELS[t]}
+            {LOG_TYPE_TAB_LABELS[t]}
           </button>
         ))}
       </div>
