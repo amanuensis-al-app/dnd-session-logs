@@ -174,6 +174,8 @@ const TYPE_HELP: Record<LogType, string> = {
   sell: 'Sell equipment for gold. The price prefills at half of what you paid (or half list price).',
   creation: 'Character creation: starting gold and equipment. Pick a class and a background to prefill.',
   free: 'Record anything not yet covered by other type of logs.',
+  dm_session:
+    "A session you DM'd for this character's rewards: same as a Session, minus the DM field (that's you). Doesn't count toward sessions played.",
 };
 
 interface GainDraft {
@@ -329,6 +331,10 @@ function isMarkedEquipped(
 
 /** Item types a Session log's "Items lost / consumed" rows offer (owner spec
  * 2026-09-20). Free Logs offer every category instead. */
+/** 'session' and 'dm_session' behave identically everywhere except the DM field
+ * and the sessions-played count (see LOG_TYPE_LABELS in types.ts). */
+const isSessionLike = (t: LogType) => t === 'session' || t === 'dm_session';
+
 const SESSION_LOSS_CATEGORIES: ItemCategory[] = [
   'magic_item',
   'consumable',
@@ -560,7 +566,7 @@ export function LogForm({
   // offers. New rows start on the first listed category the character owns.
   const lossCategories = useMemo(
     () =>
-      type === 'session'
+      isSessionLike(type)
         ? ITEM_CATEGORIES.filter((c) => SESSION_LOSS_CATEGORIES.includes(c))
         : ITEM_CATEGORIES.filter((c) => c !== 'copied_spell'),
     [type],
@@ -697,16 +703,32 @@ export function LogForm({
    * Log carries them over instead of clearing the form (owner request 2026-09-20).
    * Trade and Starting Log don't — their special fields (trade pair/partner,
    * background/class packages) have nowhere to go in a Free Log. */
-  const CARRIES_INTO_FREE: LogType[] = ['session', 'catchup', 'copy_spell', 'purchase', 'sell'];
+  const CARRIES_INTO_FREE: LogType[] = ['session', 'dm_session', 'catchup', 'copy_spell', 'purchase', 'sell'];
 
   function switchType(next: LogType) {
     if (next === type) return;
     const carryIntoFree = next === 'free' && CARRIES_INTO_FREE.includes(type);
+    // Session ⇄ DM Session: same fields, so nothing is cleared. Only the DM value
+    // has nowhere to go in a DM Session; it stays in form state (switching back
+    // restores it) but wouldn't be saved, so an edit says so first.
+    if (isSessionLike(type) && isSessionLike(next)) {
+      if (
+        editing &&
+        next === 'dm_session' &&
+        dm.trim() &&
+        !confirm(
+          `Change this log's type to "DM Session"? Everything carries over except the DM (${dm.trim()}) — a DM Session has no DM field, because that's you.`,
+        )
+      ) {
+        return;
+      }
+      setType(next);
+      return;
+    }
     // Session-only fields a Free Log has no place for — dropped on save as Free.
-    const droppedFields =
-      type === 'session'
-        ? [location.trim() && 'Location', dm.trim() && 'DM'].filter(Boolean)
-        : [];
+    const droppedFields = isSessionLike(type)
+      ? [location.trim() && 'Location', type === 'session' && dm.trim() && 'DM'].filter(Boolean)
+      : [];
     // While editing, switching type clears the item rows below — equivalent to
     // deleting this log and starting a new one of the new type (id/createdAt are
     // kept, so the log stays at the same date/order position). Worth a confirm:
@@ -728,6 +750,7 @@ export function LogForm({
       const zero = '0';
       switch (type) {
         case 'session':
+        case 'dm_session':
           setDowntimeSpent(zero);
           setCopySpells([]);
           break;
@@ -785,7 +808,7 @@ export function LogForm({
     }
 
     // Sensible defaults per type; the user can still adjust visible fields.
-    if (next === 'session' || next === 'catchup') {
+    if (isSessionLike(next) || next === 'catchup') {
       setDowntimeGained('10');
       setLevelGained('1');
     } else if (next === 'free') {
@@ -1018,11 +1041,13 @@ export function LogForm({
 
     switch (type) {
       case 'session':
+      case 'dm_session':
         return {
           ...base,
-          title: base.title || 'Session',
+          title: base.title || (type === 'dm_session' ? 'DM Session' : 'Session'),
           location: location.trim() || undefined,
-          dm: dm.trim() || undefined,
+          // A DM Session's DM is the player themselves — no field, nothing saved.
+          dm: type === 'session' ? dm.trim() || undefined : undefined,
           gpGained: Math.max(0, num(gpGained)),
           gpLost: Math.max(0, num(gpLost)),
           downtimeGained: Math.max(0, num(downtimeGained)),
@@ -1260,8 +1285,8 @@ export function LogForm({
         : ITEM_CATEGORIES.filter((c) => c !== 'copied_spell');
 
   const showGains =
-    type === 'session' || type === 'purchase' || type === 'creation' || type === 'free';
-  const showLosses = type === 'session' || type === 'free';
+    isSessionLike(type) || type === 'purchase' || type === 'creation' || type === 'free';
+  const showLosses = isSessionLike(type) || type === 'free';
 
   if (minimized) {
     return (
@@ -1292,7 +1317,7 @@ export function LogForm({
           <button
             key={t}
             type="button"
-            className={type === t ? 'tab active' : 'tab'}
+            className={`tab tab-${t.replace('_', '-')}${type === t ? ' active' : ''}`}
             onClick={() => switchType(t)}
           >
             {LOG_TYPE_LABELS[t]}
@@ -1386,16 +1411,20 @@ export function LogForm({
         )}
       </div>
 
-      <div className={type === 'session' ? 'form-grid context-row context-session' : 'form-grid context-row'}>
+      <div
+        className={
+          isSessionLike(type) ? 'form-grid context-row context-session' : 'form-grid context-row'
+        }
+      >
         <label>
-          {type === 'session' ? 'Adventure name' : 'Title'}
+          {isSessionLike(type) ? 'Adventure name' : 'Title'}
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder={type === 'session' ? 'e.g. DDAL04-01 Suits of the Mists' : 'optional'}
+            placeholder={isSessionLike(type) ? 'e.g. DDAL04-01 Suits of the Mists' : 'optional'}
           />
         </label>
-        {type === 'session' && (
+        {isSessionLike(type) && (
           <>
             <label>
               Location
@@ -1406,20 +1435,26 @@ export function LogForm({
                 onChange={setLocation}
               />
             </label>
-            <label>
-              DM
-              <ComboInput
-                value={dm}
-                options={knownDMs}
-                placeholder="who ran the table"
-                onChange={setDm}
-              />
-            </label>
+            {type === 'session' ? (
+              <label>
+                DM
+                <ComboInput
+                  value={dm}
+                  options={knownDMs}
+                  placeholder="who ran the table"
+                  onChange={setDm}
+                />
+              </label>
+            ) : (
+              // The DM slot is left EMPTY rather than removed, so the row keeps the
+              // same shape as a Session and reads the same at a glance (owner ask).
+              <span className="form-grid-spacer" aria-hidden="true" />
+            )}
           </>
         )}
       </div>
 
-      {(type === 'session' || type === 'free') && (
+      {(isSessionLike(type) || type === 'free') && (
         <div className="form-grid">
           <label>
             GP gained

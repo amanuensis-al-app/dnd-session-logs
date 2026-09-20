@@ -139,6 +139,13 @@ export interface ChatbotReplyOptions {
   fallbackName: (warnings: string[]) => string;
   /** The character.notes line saying where this import came from. */
   sourceNote: string;
+  /** Whether a reply may use the 'dm_session' type (added 2026-09-20). Only the
+   * free-form CSV import sets this: a user's own spreadsheet can mark which games
+   * they DM'd, while an adventurersleaguelog.com export has no such notion, so a
+   * 'dm_session' from that path is a hallucination. When false, one is imported as
+   * an ordinary Session (it WAS a played adventure — only "who ran it" differs)
+   * and the preview says so. */
+  allowDmSession?: boolean;
 }
 
 export function parseSheetChatbotReply(reply: string, fileName?: string): AlImportResult {
@@ -197,6 +204,12 @@ export function parseChatbotImportReply(reply: string, opts: ChatbotReplyOptions
     }
     const log = raw as Record<string, unknown>;
     let type = str(log.type)?.toLowerCase() as LogType | undefined;
+    if (type === 'dm_session' && !opts.allowDmSession) {
+      warnings.push(
+        `"${str(log.title) ?? `Log ${index + 1}`}" came back as a DM Session, which this import doesn't support — imported as a Session.`,
+      );
+      type = 'session';
+    }
     if (!type || !(LOG_TYPES as readonly string[]).includes(type)) {
       warnings.push(
         `"${str(log.title) ?? `Log ${index + 1}`}" had an unknown type "${str(log.type) ?? ''}" — imported as a Free Log.`,

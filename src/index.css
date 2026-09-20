@@ -213,6 +213,8 @@ h2 {
 .badge-sell { background: #4d5a24; color: #d9ec9f; }
 .badge-creation { background: #1f4f4a; color: #9fe8dc; }
 .badge-free { background: #3d3d47; color: #c9c9d4; }
+/* DM Session — teal, deliberately close to but distinct from Session's green. */
+.badge-dm-session { background: #1f4a4a; color: #9fd9d9; }
 
 /* ---- Cards / layout ---- */
 
@@ -2608,4 +2610,30 @@ option:disabled {
     scrollbar-width: thin;
     scrollbar-color: rgba(201, 162, 77, 0.5) rgba(15, 8, 25, 0.55);
   }
+}
+
+/* ---- DM Session (log type added 2026-09-20) ----
+   A DM-only type must not shout on a player-first app, so its tab is marked by
+   its BORDER alone: the same muted lilac text as every other tab, with a teal
+   border kept dimmer than the shared gold one (0.28 alpha of a darker teal).
+   Only the selected state carries real color. */
+.log-form-types .tab-dm-session {
+  border-color: rgba(70, 150, 142, 0.28);
+}
+
+.log-form-types .tab-dm-session:hover {
+  border-color: rgba(70, 150, 142, 0.6);
+}
+
+/* Active: the gold fill swapped for teal of the same weight. */
+.log-form-types .tab-dm-session.active {
+  background: #4d9b8f;
+  border-color: #4d9b8f;
+  color: #16121f;
+}
+
+/* Keeps a DM Session's context row the same shape as a Session's: title +
+   location + an empty cell where the DM field sits on a Session. */
+.form-grid-spacer {
+  display: block;
 }

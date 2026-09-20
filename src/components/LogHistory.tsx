@@ -26,6 +26,7 @@ const TYPE_BADGE: Record<LogType, string> = {
   sell: 'badge-sell',
   creation: 'badge-creation',
   free: 'badge-free',
+  dm_session: 'badge-dm-session',
 };
 
 /** Logs shown per page — everything is in memory anyway; this is about not

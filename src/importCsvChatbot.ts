@@ -42,7 +42,7 @@ Use exactly this shape:
   "character": { "name": "...", "species": "... or null", "class": "... or null" },
   "logs": [
     {
-      "type": one of "session", "catchup", "transaction", "copy_spell", "purchase", "sell", "creation", "free",
+      "type": one of "session", "catchup", "transaction", "copy_spell", "purchase", "sell", "creation", "free", "dm_session",
       "date": "YYYY-MM-DD",
       "time": "HH:MM (24h) — or null when the document has no time of day",
       "title": "short; the entry's own title/name if it has one",
@@ -82,6 +82,7 @@ Use exactly this shape:
 
 CLASSIFYING THE ENTRIES (by what the entry DID, not by what the document calls it):
 1. "session" — a played game: has a DM, a location, an adventure title, or session-style rewards (gold in + downtime in + maybe a level or loot). dm/location filled when known. This is the default for anything that looks like actual play.
+1b. "dm_session" — the SAME as "session", but for a game this character's own player RAN as the DM (so the rewards are DM rewards). Only use it when the document SAYS SO: a DM column holding the character's own player/owner name, a "DM"/"DM'd"/"DM reward"/"GM" marker on that entry, or a column that explicitly flags who ran the table. If it is not spelled out, use "session" — most entries are played, not DM'd. A "dm_session" carries no "dm" field (that's the player themselves); "location" still applies.
 2. "creation" — the character being made: usually the OLDEST entry; starting gold and/or starting equipment; words like "creation", "starting equipment", "starting gold", a class/background package. levelGained = starting level − 1 (usually 0). Starting gear is "equipment" itemsGained with no costs; gpGained = the starting gold.
 3. "purchase" — gold OUT for equipment/consumables. Every bought item gets its per-unit "cost"; gpLost must equal the exact sum of cost × quantity.
 4. "sell" — gold IN for gear the character already owned (words like "sell", "sold", "sell back"). The sold items go in itemsLost with reason "sold" and a per-unit "salePrice"; gpGained = the exact sum of salePrice × quantity. An entry that BUYS and SELLS at once becomes TWO logs — a "purchase" then a "sell" — with the same date+time; the document may only show the NET gold, so split it: price the sells from any explicit amounts, and give the purchase the remainder so the pair's net matches the document.
@@ -132,5 +133,8 @@ export function parseCsvChatbotReply(reply: string, fileName?: string): AlImport
   return parseChatbotImportReply(reply, {
     fallbackName: (warnings) => nameFromFileName(fileName, warnings),
     sourceNote: `Imported from a free-form CSV log via an AI chatbot on ${new Date().toISOString().slice(0, 10)}.`,
+    // The only import path that may produce DM Sessions — a personal spreadsheet
+    // can record which games its owner ran; see the prompt's dm_session rule.
+    allowDmSession: true,
   });
 }

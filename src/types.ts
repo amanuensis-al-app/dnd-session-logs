@@ -88,7 +88,7 @@ export type MinorProperty = (typeof MINOR_PROPERTIES)[number];
 
 // ---- Logs -------------------------------------------------------------------
 
-export const LOG_TYPES = ['session', 'catchup', 'transaction', 'copy_spell', 'purchase', 'sell', 'creation', 'free'] as const;
+export const LOG_TYPES = ['session', 'catchup', 'transaction', 'copy_spell', 'purchase', 'sell', 'creation', 'free', 'dm_session'] as const;
 
 export type LogType = (typeof LOG_TYPES)[number];
 
@@ -105,6 +105,10 @@ export const LOG_TYPE_LABELS: Record<LogType, string> = {
   // term); the internal type id stays 'creation', same deal as transaction/"Trade".
   creation: 'Starting Log',
   free: 'Free Log',
+  // A session the character's own player DM'd (added 2026-09-20). Identical to
+  // 'session' in every effect and form field EXCEPT it has no DM field (that's
+  // you) and it does NOT count toward sessionsPlayed — it wasn't played.
+  dm_session: 'DM Session',
 };
 
 /**
@@ -324,7 +328,8 @@ export interface DerivedStats {
   level: number;
   gp: number;
   downtimeDays: number;
-  /** Count of this character's 'session' logs. */
+  /** Count of this character's 'session' logs. DM Sessions ('dm_session') are
+   * deliberately excluded — the character didn't play them. */
   sessionsPlayed: number;
   /** Every item this character ever gained, including depleted ones. */
   allItems: InventoryItem[];
