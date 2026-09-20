@@ -854,11 +854,18 @@ textarea:focus {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  /* A long adventure title used to push the date and the ✎/✕ buttons past the
+     card's edge on a phone (flex items don't shrink below their content by
+     default) — the title now shrinks/wraps and the row wraps if it still can't
+     fit. */
+  flex-wrap: wrap;
 }
 
 .log-entry-title {
   font-weight: 600;
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .log-entry-date {
@@ -1099,19 +1106,27 @@ span.item-row-name > * {
 
 /* ---- Modal ---- */
 
+/* A modal taller than the viewport (long forms on a phone) has to scroll: the
+   OVERLAY scrolls, and the modal centers via `margin: auto` rather than
+   `align-items: center` — centering a flex item that overflows clips its top
+   beyond reach. Overflow stays off .modal itself so the decoration art perched
+   above it (.modal-decoration-anchor) isn't clipped. */
 .modal-overlay {
   position: fixed;
   inset: 0;
   background: rgba(14, 8, 24, 0.65);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 1rem;
   z-index: 50;
 }
 
 .modal {
   position: relative;
+  margin: auto;
   width: 100%;
   max-width: 460px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
@@ -1319,6 +1334,12 @@ input[type='checkbox'] {
   flex-wrap: wrap;
 }
 
+/* Grouping wrappers are layout-transparent on desktop (one flat row of buttons);
+   the mobile media query turns each into its own row. */
+.sheet-toolbar-group {
+  display: contents;
+}
+
 /* ---- Unexported-changes indicator ---- */
 
 .unbacked-indicator {
@@ -1361,6 +1382,60 @@ input[type='checkbox'] {
   .page-heading-actions {
     flex-wrap: wrap;
   }
+
+  /* Character sheet header: the identity (avatar + name) and the action buttons
+     sit side by side on desktop, but the buttons can't shrink (nowrap labels), so
+     on a phone they overflowed the card — running over the name and past its
+     border. Stack them instead. */
+  .sheet-header-top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.7rem;
+  }
+  .sheet-header-actions {
+    justify-content: flex-start;
+  }
+
+  /* Sheet toolbar: on desktop the view tabs (Inventory/Prep/Logs) sit left and the
+     actions (Export PDF / + Add Log…) right, so the two groups read as different
+     kinds of control. Wrapped onto one column on a phone they ran together into a
+     single pile of buttons — so the actions get their own row below a rule. */
+  .sheet-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+  .sheet-toolbar .tabs {
+    padding-bottom: 0.7rem;
+  }
+  .sheet-toolbar-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    padding-top: 0.7rem;
+    border-top: 1px solid var(--gold-dim);
+  }
+  /* Each group its own row, so the wrap can't split them mid-group
+     (Export PDF | + Add Log from Text // + Add Log was the ugly default). */
+  .sheet-toolbar-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+}
+
+/* Long names must be able to shrink/wrap inside their flex row rather than push
+   siblings (buttons, badges) out of the container — flex items default to
+   min-width: auto, which is what let them overflow. */
+.sheet-header-identity,
+.inventory-item-main {
+  min-width: 0;
+}
+
+.sheet-header-identity h1,
+.inventory-item-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* ---- Character report (Export PDF) ---- */

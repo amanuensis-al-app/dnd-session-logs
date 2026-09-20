@@ -12,7 +12,7 @@ export function Modal({
   wide = false,
   decoration,
   className,
-  closeButton = false,
+  closeButton = true,
   children,
 }: {
   title: string;
@@ -25,8 +25,9 @@ export function Modal({
   decoration?: string;
   /** Extra class on the dialog box, e.g. for a custom width. */
   className?: string;
-  /** Show a ✕ close button in the top-right corner (for modals with no
-   * Cancel/Close button of their own). */
+  /** ✕ close button in the top-right corner. On by default (2026-09-20): several
+   * modals had no Cancel/Close of their own, and on a phone — where a modal fills
+   * the screen and there's no backdrop left to tap — they were a dead end. */
   closeButton?: boolean;
   children: ReactNode;
 }) {

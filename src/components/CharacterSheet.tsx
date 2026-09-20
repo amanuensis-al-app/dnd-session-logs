@@ -319,14 +319,20 @@ export function CharacterSheet({
             Logs ({characterLogs.length})
           </button>
         </div>
+        {/* Two groups: the report on its own, then the two ways to add a log.
+           `display: contents` on desktop keeps them in one row; on a phone each
+           group becomes its own row (see .sheet-toolbar-group in index.css). */}
         <div className="sheet-toolbar-actions">
-          <button
-            className="btn"
-            title="Printable report of Prep and all logs — save as PDF for your DM"
-            onClick={() => setShowReportOptions(true)}
-          >
-            Export PDF
-          </button>
+          <span className="sheet-toolbar-group">
+            <button
+              className="btn"
+              title="Printable report of Prep and all logs — save as PDF for your DM"
+              onClick={() => setShowReportOptions(true)}
+            >
+              Export PDF
+            </button>
+          </span>
+          <span className="sheet-toolbar-group">
           <button
             className="btn"
             title="Paste a session write-up (e.g. from Discord) and get the form prefilled"
@@ -343,6 +349,7 @@ export function CharacterSheet({
           >
             + Add Log
           </button>
+          </span>
         </div>
       </div>
 

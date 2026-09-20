@@ -105,7 +105,7 @@ export function AllMagicItems({ characters, derivedByCharacter, onOpenCharacter,
   }
 
   return (
-    <Modal title="All Magic Items" className="all-items-modal" closeButton onClose={onClose}>
+    <Modal title="All Magic Items" className="all-items-modal" onClose={onClose}>
       {rows.length === 0 ? (
         <p className="muted">None of your characters own a magic item yet.</p>
       ) : (
