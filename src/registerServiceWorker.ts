@@ -20,10 +20,22 @@ export function registerServiceWorker() {
 
   const wb = new Workbox(`${import.meta.env.BASE_URL}sw.js`, { updateViaCache: 'none' })
 
-  wb.addEventListener('activated', (event) => {
-    if (event.isUpdate || event.isExternal) {
+  // Reload once the NEW worker is in charge of this page ('controlling' fires
+  // after it claims us, so the reload is guaranteed to be served the new build —
+  // 'activated' can fire before the claim). Guarded: a reload must happen once.
+  let reloading = false
+  wb.addEventListener('controlling', (event) => {
+    if ((event.isUpdate || event.isExternal) && !reloading) {
+      reloading = true
       window.location.reload()
     }
+  })
+
+  // Belt and braces: if a new worker ever ends up waiting anyway (e.g. a build
+  // without skipWaiting, or another tab holding the old one), tell it to take
+  // over instead of sitting there until every tab is closed.
+  wb.addEventListener('waiting', () => {
+    void wb.messageSkipWaiting()
   })
 
   wb.register()

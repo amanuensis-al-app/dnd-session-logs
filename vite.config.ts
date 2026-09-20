@@ -46,6 +46,18 @@ export default defineConfig(({ mode }) => {
         : [
             VitePWA({
               registerType: 'autoUpdate',
+              // MUST be set explicitly: with `injectRegister: false` the plugin
+              // does NOT apply registerType 'autoUpdate' to the generated worker,
+              // so without these the new worker installs and then WAITS forever
+              // (the old one still controls the open page) — exactly the "needs a
+              // hard refresh" bug. skipWaiting activates the new worker at once,
+              // clientsClaim puts it in charge of already-open pages, and
+              // registerServiceWorker.ts then reloads them.
+              workbox: {
+                skipWaiting: true,
+                clientsClaim: true,
+                cleanupOutdatedCaches: true,
+              },
               // We register the service worker ourselves (src/registerServiceWorker.ts)
               // with `updateViaCache: 'none'` so update checks always bypass the HTTP
               // cache — GitLab/GitHub Pages give no control over Cache-Control, and a
