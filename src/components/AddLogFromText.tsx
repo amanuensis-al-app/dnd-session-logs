@@ -17,7 +17,8 @@ interface Props {
 }
 
 /**
- * "Add Log from Text" modal: paste a session write-up, then either run the built-in
+ * "+ Session Recap" modal (titled "Add Session from a Recap"; called "Add Log from
+ * Text" until 2026-09-20): paste a session recap, then either run the built-in
  * best-effort parser or go through any AI chatbot the user already has (copy generated
  * instructions out, paste the JSON reply back). Both paths end in a prefilled LogForm.
  */
@@ -87,7 +88,7 @@ export function AddLogFromText({ characterId, onDraft, onClose }: Props) {
   }
 
   return (
-    <Modal title="Add Log from Text" wide decoration="decorations/ai-scribe.png" onClose={onClose}>
+    <Modal title="Add Session from a Recap" wide decoration="decorations/ai-scribe.png" onClose={onClose}>
       <div className="text-import">
         <p className="muted">
           Paste the session write-up (e.g. the message your DM posted on Discord) and the log

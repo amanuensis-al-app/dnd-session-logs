@@ -335,10 +335,10 @@ export function CharacterSheet({
           <span className="sheet-toolbar-group">
           <button
             className="btn"
-            title="Paste a session write-up (e.g. from Discord) and get the form prefilled"
+            title="Paste a session recap (e.g. your DM's Discord post) and get a session log filled in for you"
             onClick={() => setShowTextImport(true)}
           >
-            + Add Log from Text
+            + Session Recap
           </button>
           <button
             className="btn btn-primary"

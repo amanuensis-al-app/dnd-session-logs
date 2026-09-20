@@ -78,7 +78,7 @@ This is the log you'll use most. After a game, click **+ Add Log → Session** a
 - **Items lost** — anything used up or given away mid-session
 
 > **Tip:** If your DM posts a written recap (e.g. on Discord), click
-> **+ Add Log from Text** instead of filling the form by hand — paste the recap in
+> **+ Session Recap** instead of filling the form by hand — paste the recap in
 > and it prefills a Session log for you to review before saving.
 
 ## 5. Trading a magic item
